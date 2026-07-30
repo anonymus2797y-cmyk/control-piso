@@ -394,7 +394,7 @@
     <div class="mark">P</div>
     <div>
       <h1>Control de Piso</h1>
-      <span>Alma · Denisse · Godoy <span style="opacity:.5;">· v30</span></span>
+      <span>Alma · Denisse · Godoy <span style="opacity:.5;" id="versionTag"></span></span>
     </div>
   </div>
   <div class="header-controls">
@@ -407,6 +407,9 @@
     </div>
   </div>
 </header>
+<div id="updateBanner" style="display:none; background:var(--accent); color:#0b1220; text-align:center; padding:9px 14px; font-size:12.5px; font-weight:700; cursor:pointer;">
+  🔄 Hay una versión nueva de la app — toca aquí para actualizar
+</div>
 
 <nav class="tabs">
   <button class="tab-btn active" data-view="hoy">Hoy</button>
@@ -552,6 +555,10 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
+// Bump this by 1 every time a new version is shipped — that's the ONLY place
+// that needs to change. The header badge and the update-checker both read it.
+const APP_VERSION = 31;
+
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
   {id:'denisse', name:'Denisse Yepez'},
@@ -2679,13 +2686,38 @@ function populateExecSwitch(){
   });
 }
 
+// ---- UPDATE CHECKER ----
+// Every so often, re-fetches this exact page (bypassing cache) and reads its
+// APP_VERSION. If it's higher than the one currently running, shows a small
+// banner so the person can update with one tap — no need to reshare a link
+// or manually close Safari.
+function checkForUpdate(){
+  fetch(window.location.href.split('?')[0] + '?_=' + Date.now(), {cache:'no-store'})
+    .then(res => res.text())
+    .then(html => {
+      const match = html.match(/const APP_VERSION\s*=\s*(\d+)/);
+      if(match){
+        const liveVersion = parseInt(match[1], 10);
+        if(liveVersion > APP_VERSION){
+          const banner = document.getElementById('updateBanner');
+          banner.style.display = 'block';
+          banner.onclick = () => window.location.reload(true);
+        }
+      }
+    })
+    .catch(()=>{ /* offline or blocked — silently skip, not critical */ });
+}
+
 // ---- INIT ----
 (function init(){
+  document.getElementById('versionTag').textContent = '· v' + APP_VERSION;
   initTheme();
   populateExecSwitch();
   renderIaQuickCards();
   addIaMessage('Hola Carlos 👋 Toca una tarjeta de arriba, o pregúntame lo que quieras: cómo va el equipo, cómo va Alma o Denisse, cómo va Postpago, quién necesita apoyo... aquí ando.', false);
   if(isLoggedIn()){ hideLogin(); }
+  checkForUpdate();
+  setInterval(checkForUpdate, 3 * 60 * 1000); // re-check every 3 minutes while the app is open
   startCloudSync(()=>{
     if(!initialRenderDone){
       initialRenderDone = true;
