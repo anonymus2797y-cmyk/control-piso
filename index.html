@@ -557,7 +557,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 31;
+const APP_VERSION = 32;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -673,7 +673,7 @@ function startCloudSync(onUpdate){
 // never sneak in and wipe the form first.
 let mesFormDirty = false;
 document.addEventListener('input', (e)=>{
-  if(e.target && e.target.classList && (e.target.classList.contains('yoy-input') || e.target.classList.contains('month-adjust-input'))){
+  if(e.target && e.target.classList && (e.target.classList.contains('month-cmp-input') || e.target.classList.contains('month-adjust-input'))){
     mesFormDirty = true;
   }
 }, true);
@@ -1646,7 +1646,7 @@ function renderMes(){
     insight.innerHTML = `💡 Ese mes cerró con <b>${grandTotalStore}</b> de <b>${cuotaTotalSum}</b> (${pctTeam}%).`;
   }
 
-  renderYearAggregate();
+  renderYearAggregate(monthKey, effectiveTotals, cuota);
 }
 
 // Manager-only: this month's cuota/cierre vs the same month last year's cuota/cierre.
@@ -1726,7 +1726,7 @@ function getYearComparisonData(){
   return {today, year, lastYear, curTotals, curCuota, prevTotals, prevCuota, monthsLoaded, usingOverride};
 }
 
-function renderYearAggregate(){
+function renderYearAggregate(monthKey, totals, cuotaThisYear){
   const elTitle = document.getElementById('yearAggTitle');
   const el = document.getElementById('yearAggCompare');
   if(!el || !elTitle) return;
@@ -1739,84 +1739,91 @@ function renderYearAggregate(){
   el.style.display = '';
   elTitle.style.display = '';
 
-  const {today, year, lastYear, curTotals, curCuota, prevTotals, prevCuota, monthsLoaded, usingOverride} = getYearComparisonData();
-  const override = usingOverride ? loadAnnualOverride(lastYear) : null;
+  const [y, mo] = monthKey.split('-').map(Number);
+  const monthIdx = mo - 1;
+  const lastYear = y - 1;
+  const lastYearKey = `${lastYear}-${String(monthIdx+1).padStart(2,'0')}`;
+  const monthNameRaw = new Date(y, monthIdx, 1).toLocaleDateString('es-MX', {month:'long'});
+  const monthName = monthNameRaw.charAt(0).toUpperCase() + monthNameRaw.slice(1);
+
+  elTitle.innerHTML = `📆 ${monthName} ${lastYear} vs ${monthName} ${y} <span style="color:var(--ink-faint); font-weight:600; text-transform:none;">— solo gerente</span>`;
+
+  const manual = loadHistoricalMonth(lastYearKey) || {};
 
   const editFormHtml = `
     <div class="goals-form" style="margin-bottom:12px;">
       <div class="row" style="border-bottom:none; padding-bottom:10px;">
-        <label style="font-weight:800; font-size:12.5px;">Editar total de ${lastYear} (cuota y cierre)</label>
+        <label style="font-weight:800; font-size:12.5px;">Editar ${monthName} ${lastYear} (cuota y cierre)</label>
       </div>
       ${CATS.map(c=>{
-        const m = (override && override[c.id]) || {cuota:0, venta:0};
+        const m = manual[c.id] || {cuota:0, venta:0};
         return `
         <div class="row" style="align-items:flex-start;">
           <label style="padding-top:6px;"><span class="dot ${c.cls}"></span>${c.label}</label>
           <div style="display:flex; gap:6px;">
             <div style="text-align:center;">
               <div style="font-size:9px; color:var(--ink-faint); font-weight:700;">CUOTA</div>
-              <input type="number" min="0" class="yoy-input" data-cat="${c.id}" data-field="cuota" value="${m.cuota||0}" style="width:56px;">
+              <input type="number" min="0" class="month-cmp-input" data-cat="${c.id}" data-field="cuota" value="${m.cuota||0}" style="width:56px;">
             </div>
             <div style="text-align:center;">
               <div style="font-size:9px; color:var(--ink-faint); font-weight:700;">CIERRE</div>
-              <input type="number" min="0" class="yoy-input" data-cat="${c.id}" data-field="venta" value="${m.venta||0}" style="width:56px;">
+              <input type="number" min="0" class="month-cmp-input" data-cat="${c.id}" data-field="venta" value="${m.venta||0}" style="width:56px;">
             </div>
           </div>
         </div>`;
       }).join('')}
-      <div class="goals-note">Pon el total de ${lastYear} completo (o lo que tengas de tu dashboard anterior) por categoría — se guarda solo, campo por campo.</div>
+      <div class="goals-note">Pon la cuota y el cierre real de ${monthName} ${lastYear} (de tu dashboard anterior) — se guarda solo, campo por campo. Usa las flechas ‹ › de Mes para moverte a otro mes y cargar el suyo.</div>
     </div>
   `;
 
-  if(!override && monthsLoaded===0){
-    el.innerHTML = editFormHtml + `<div class="insight-bar">Aún no hay datos de ${lastYear} — captura arriba y aquí se arma la comparación al instante.</div>`;
-    wireAnnualOverrideForm(el, lastYear);
+  const hasManualData = CATS.some(c => manual[c.id] && (manual[c.id].cuota>0 || manual[c.id].venta>0));
+
+  if(!hasManualData){
+    el.innerHTML = editFormHtml + `<div class="insight-bar">Aún no hay datos de <b>${monthName} ${lastYear}</b> — captúralos arriba para activar la comparación de este mes.</div>`;
+    wireMonthCompareForm(el, lastYearKey);
     return;
   }
 
-  const sumCuotaPrev = sumVals(prevCuota), sumVentaPrev = sumVals(prevTotals);
-  const sumCuotaCur = sumVals(curCuota), sumVentaCur = sumVals(curTotals);
-  const pctPrev = pct1(sumVentaPrev, sumCuotaPrev);
-  const pctCur = pct1(sumVentaCur, sumCuotaCur);
-
-  let html = `<div style="overflow-x:auto;"><table class="cierre" style="min-width:560px;"><thead><tr><th>Categoría</th><th>Cuota ${lastYear}</th><th>Cerró ${lastYear}</th><th>%</th><th>Cuota ${year}</th><th>Llevas ${year}</th><th>%</th></tr></thead><tbody>`;
+  let sumCuotaPrev=0, sumVentaPrev=0, sumCuotaCur=0, sumVentaCur=0;
+  let html = `<div style="overflow-x:auto;"><table class="cierre" style="min-width:560px;"><thead><tr><th>Categoría</th><th>Cuota ${lastYear}</th><th>Cerró ${lastYear}</th><th>%</th><th>Cuota ${y}</th><th>Llevas ${y}</th><th>%</th></tr></thead><tbody>`;
   CATS.forEach(c=>{
-    const cuotaPrev = prevCuota[c.id]||0, ventaPrev = prevTotals[c.id]||0;
-    const cuotaCur = curCuota[c.id]||0, ventaCur = curTotals[c.id]||0;
+    const m = manual[c.id] || {cuota:0, venta:0};
+    const cuotaPrev = m.cuota||0, ventaPrev = m.venta||0;
+    const cuotaCur = cuotaThisYear[c.id]||0, ventaCur = totals[c.id]||0;
+    sumCuotaPrev+=cuotaPrev; sumVentaPrev+=ventaPrev; sumCuotaCur+=cuotaCur; sumVentaCur+=ventaCur;
     const pP = pct1(ventaPrev, cuotaPrev), pC = pct1(ventaCur, cuotaCur);
     const colorPrev = pP>=100?'var(--renov)':pP>=60?'var(--acc)':'var(--bad)';
     const colorCur = pC>=100?'var(--renov)':pC>=60?'var(--acc)':'var(--bad)';
     html += `<tr><td>${c.label}</td><td class="meta-col">${cuotaPrev}</td><td class="cell-strong">${ventaPrev}</td><td style="color:${colorPrev};font-weight:800;">${cuotaPrev>0?pP+'%':'—'}</td><td class="meta-col">${cuotaCur}</td><td class="cell-strong">${ventaCur}</td><td style="color:${colorCur};font-weight:800;">${cuotaCur>0?pC+'%':'—'}</td></tr>`;
   });
-  html += `<tr class="totalrow"><td>Total</td><td>${sumCuotaPrev}</td><td>${sumVentaPrev}</td><td>${sumCuotaPrev>0?pctPrev+'%':'—'}</td><td>${sumCuotaCur}</td><td>${sumVentaCur}</td><td>${sumCuotaCur>0?pctCur+'%':'—'}</td></tr>`;
+  const totalPctPrev = pct1(sumVentaPrev, sumCuotaPrev);
+  const totalPctCur = pct1(sumVentaCur, sumCuotaCur);
+  html += `<tr class="totalrow"><td>Total</td><td>${sumCuotaPrev}</td><td>${sumVentaPrev}</td><td>${sumCuotaPrev>0?totalPctPrev+'%':'—'}</td><td>${sumCuotaCur}</td><td>${sumVentaCur}</td><td>${sumCuotaCur>0?totalPctCur+'%':'—'}</td></tr>`;
   html += `</tbody></table></div>`;
 
   const diff = sumVentaCur - sumVentaPrev;
   const pctDiff = sumVentaPrev>0 ? Math.round((diff/sumVentaPrev)*1000)/10 : (diff>0?100:0);
   const arrow = diff>=0 ? '📈' : '📉';
-  const monthsNote = (!override && monthsLoaded < (today.getMonth()+1))
-    ? ` (con ${monthsLoaded} de ${today.getMonth()+1} meses de ${lastYear} cargados hasta ahora)`
-    : '';
-  html += `<div class="insight-bar">${arrow} De enero a ${today.toLocaleDateString('es-MX',{month:'long'})} de <b>${lastYear}</b> cerraron en <b>${pctPrev}%</b> de la cuota acumulada${monthsNote}. En lo que va de <b>${year}</b> llevan <b>${pctCur}%</b> — ${diff>=0?'+':''}${diff} ventas vs el mismo periodo del año pasado (${pctDiff>=0?'+':''}${pctDiff}%).</div>`;
+  html += `<div class="insight-bar">${arrow} <b>${monthName} ${lastYear}</b> cerró en <b>${totalPctPrev}%</b> de la cuota (${sumVentaPrev}/${sumCuotaPrev}). <b>${monthName} ${y}</b> lleva <b>${totalPctCur}%</b> (${sumVentaCur}/${sumCuotaCur}) — ${diff>=0?'+':''}${diff} ventas vs el mismo mes del año pasado (${pctDiff>=0?'+':''}${pctDiff}%).</div>`;
 
   el.innerHTML = editFormHtml + html;
-  wireAnnualOverrideForm(el, lastYear);
+  wireMonthCompareForm(el, lastYearKey);
 }
 
-function wireAnnualOverrideForm(el, lastYear){
-  el.querySelectorAll('.yoy-input').forEach(inp=>{
+function wireMonthCompareForm(el, lastYearKey){
+  el.querySelectorAll('.month-cmp-input').forEach(inp=>{
     inp.addEventListener('change', ()=>{
       try{
-        const values = loadAnnualOverride(lastYear) || {};
-        el.querySelectorAll('.yoy-input').forEach(i2=>{
+        const values = loadHistoricalMonth(lastYearKey) || {};
+        el.querySelectorAll('.month-cmp-input').forEach(i2=>{
           const cat = i2.dataset.cat, field = i2.dataset.field;
           if(!values[cat]) values[cat] = {cuota:0, venta:0};
           values[cat][field] = Number(i2.value)||0;
         });
-        firestoreCache[`cp_annual_override_${lastYear}`] = JSON.stringify(values);
-        try{ localStorage.setItem(`cp_annual_override_${lastYear}`, JSON.stringify(values)); }catch(err){}
+        firestoreCache[`cp_historical_${lastYearKey}`] = JSON.stringify(values);
+        try{ localStorage.setItem(`cp_historical_${lastYearKey}`, JSON.stringify(values)); }catch(err){}
         mesFormDirty = false;
-        db.collection(CP_COLLECTION).doc(`cp_annual_override_${lastYear}`).set({
+        db.collection(CP_COLLECTION).doc(`cp_historical_${lastYearKey}`).set({
           value: JSON.stringify(values),
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         }).then(()=>{
@@ -1827,7 +1834,7 @@ function wireAnnualOverrideForm(el, lastYear){
         });
         renderMes();
       } catch(err){
-        console.error('Error al guardar el acumulado anual', err);
+        console.error('Error al guardar comparativo mensual', err);
         showToast('⚠ Error al guardar: ' + err.message, true);
       }
     });
