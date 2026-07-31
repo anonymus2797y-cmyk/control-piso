@@ -557,7 +557,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 33;
+const APP_VERSION = 34;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -1247,15 +1247,34 @@ function getDashboardAlert(totals, commit){
   if(elapsedRaw <= 0) return null; // store hasn't opened yet
   const elapsed = Math.min(1, elapsedRaw);
 
-  let worst = null;
-  CATS.forEach(c=>{
-    const goal = commit[c.id]||0;
-    if(goal<=0) return;
+  const PRIORITY_CAT_IDS = ['postpago', 'renov']; // Carlos's main focus categories
+
+  function gapFor(catId){
+    const cat = CATS.find(c=>c.id===catId);
+    const goal = commit[catId]||0;
+    if(goal<=0) return null;
     const expected = goal*elapsed;
-    const actual = totals[c.id]||0;
-    const gap = expected - actual;
-    if(!worst || gap > worst.gap) worst = {cat:c, goal, actual, gap};
+    const actual = totals[catId]||0;
+    return {cat, goal, actual, gap: expected-actual};
+  }
+
+  // Check the priority categories first — if either is meaningfully behind
+  // pace, that's what gets surfaced, even if some other category is worse.
+  let worst = null;
+  PRIORITY_CAT_IDS.forEach(id=>{
+    const r = gapFor(id);
+    if(r && (!worst || r.gap > worst.gap)) worst = r;
   });
+  const priorityIsBehind = worst && worst.gap >= 1;
+
+  if(!priorityIsBehind){
+    // Priority categories are on pace — check every category so a genuinely
+    // urgent problem elsewhere still gets caught.
+    CATS.forEach(c=>{
+      const r = gapFor(c.id);
+      if(r && (!worst || r.gap > worst.gap)) worst = r;
+    });
+  }
   if(!worst) return null;
 
   const timeStr = now.toLocaleTimeString('es-MX', {hour:'numeric', minute:'2-digit'});
@@ -2276,7 +2295,9 @@ function iaComoVamos(){
 
   const mood = pctDay>=100 ? '¡Van muy bien hoy! 💪' : pctDay>=60 ? 'Van en buen ritmo hoy.' : 'Hoy van algo atrasados todavía.';
   const opener = iaPick(['Aquí tienes el panorama 👀', 'Esto es lo que veo ahorita:', 'Checando los números...']);
-  return `${opener}<br>${mood} Llevan ${grandToday} de ${commitTotal} (${pctDay}%).<br>En la semana van en ${weekTotal} de ${weekCuotaTotal} (${pctWeek}%), y en el mes ${monthTotal} de ${cuotaMesTotal} (${pctMonth}%).`;
+  const postpagoMonthPct = pct1(monthTotals.postpago||0, cuotaMes.postpago||0);
+  const renovMonthPct = pct1(monthTotals.renov||0, cuotaMes.renov||0);
+  return `${opener}<br>${mood} Llevan ${grandToday} de ${commitTotal} (${pctDay}%).<br>En la semana van en ${weekTotal} de ${weekCuotaTotal} (${pctWeek}%), y en el mes ${monthTotal} de ${cuotaMesTotal} (${pctMonth}%).<br><br>🎯 <b>Tus prioridades este mes:</b> Postpago ${postpagoMonthPct}%, Renovación ${renovMonthPct}%.`;
 }
 
 function iaExecEspecifico(execId){
@@ -2368,7 +2389,15 @@ function iaIndicadorAtrasado(){
   });
 
   const fmtList = arr => arr.length ? arr.map(c=>`<b>${c.label}</b>`).join(', ') : 'ninguno ✅';
-  return `🐢 <b>Indicadores atrasados</b><br>Hoy: ${fmtList(dayAtrasados)}<br>Semana: ${fmtList(weekAtrasados)}<br>Mes: ${fmtList(monthAtrasados)}`;
+
+  const priorityBehind = [];
+  if(dayAtrasados.some(c=>c.id==='postpago') || weekAtrasados.some(c=>c.id==='postpago') || monthAtrasados.some(c=>c.id==='postpago')) priorityBehind.push('Postpago');
+  if(dayAtrasados.some(c=>c.id==='renov') || weekAtrasados.some(c=>c.id==='renov') || monthAtrasados.some(c=>c.id==='renov')) priorityBehind.push('Renovación');
+  const priorityNote = priorityBehind.length
+    ? `⚠️ Atención: tu categoría prioritaria <b>${priorityBehind.join(' y ')}</b> está atrasada — dale seguimiento primero.<br><br>`
+    : '';
+
+  return `🐢 <b>Indicadores atrasados</b><br>${priorityNote}Hoy: ${fmtList(dayAtrasados)}<br>Semana: ${fmtList(weekAtrasados)}<br>Mes: ${fmtList(monthAtrasados)}`;
 }
 
 function iaShareBelowFair(execTotals){
