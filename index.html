@@ -458,6 +458,7 @@
     <div id="weekTables"></div>
     <div class="insight-bar" id="weekInsight"></div>
     <button class="save-btn" id="shareSemanaBtn">📤 Compartir avance de la semana</button>
+    <button class="save-btn" id="reporteSemanaBtn" style="margin-top:8px; background:var(--bg-card); color:var(--ink);">📝 Generar reporte de WhatsApp</button>
   </section>
 
   <!-- MES -->
@@ -480,6 +481,7 @@
     <div class="cards" id="monthExecCards"></div>
     <div class="insight-bar" id="monthInsight"></div>
     <button class="save-btn" id="shareMesBtn">📤 Compartir avance del mes</button>
+    <button class="save-btn" id="reporteMesBtn" style="margin-top:8px; background:var(--bg-card); color:var(--ink);">📝 Generar reporte de cierre (WhatsApp)</button>
 
   </section>
 
@@ -556,11 +558,41 @@
       <div class="row"><label><span class="dot prepago"></span>Prepago</label><input type="number" id="cuota-prepago" min="0"></div>
       <div class="goals-note">Esta cuota es del total de la tienda (los 3 ejecutivos juntos), se divide entre 3 para el avance individual, y es independiente por mes — cámbiala cuando quieras sin perder el historial de meses anteriores.</div>
     </div>
+
+    <div class="section-title">💰 Comisión por venta <span style="color:var(--ink-faint); font-weight:600; text-transform:none;">— opcional, para el reporte de cierre</span></div>
+    <div class="goals-form">
+      <div class="row"><label><span class="dot postpago"></span>Postpago</label><input type="number" id="comm-postpago" min="0" placeholder="$ por venta"></div>
+      <div class="row"><label><span class="dot renov"></span>Renovación</label><input type="number" id="comm-renov" min="0" placeholder="$ por venta"></div>
+      <div class="row"><label><span class="dot acc"></span>Accesorios</label><input type="number" id="comm-acc" min="0" placeholder="$ por venta"></div>
+      <div class="row"><label><span class="dot seguros"></span>Seguros</label><input type="number" id="comm-seguros" min="0" placeholder="$ por venta"></div>
+      <div class="row"><label><span class="dot prepago"></span>Prepago</label><input type="number" id="comm-prepago" min="0" placeholder="$ por venta"></div>
+      <div class="goals-note">Si capturas cuánto se paga por cada venta, el reporte de cierre de mes calcula la comisión generada por cada ejecutivo automáticamente. Si lo dejas en blanco, esa parte simplemente no aparece en el reporte.</div>
+    </div>
+
+    <div class="section-title">📆 Fecha de ingreso <span style="color:var(--ink-faint); font-weight:600; text-transform:none;">— opcional, para mostrar antigüedad</span></div>
+    <div class="goals-form">
+      <div class="row"><label>Alma</label><input type="date" id="hire-alma"></div>
+      <div class="row"><label>Denisse</label><input type="date" id="hire-denisse"></div>
+      <div class="row"><label>Godoy</label><input type="date" id="hire-godoy"></div>
+      <div class="goals-note">Se usa solo para mostrar "X meses" en el reporte de cierre de mes. Si la dejas vacía para alguien, simplemente no se muestra su antigüedad.</div>
+    </div>
   </section>
 
 </main>
 
 <div class="save-toast" id="toast">Guardado ✓</div>
+
+<div id="reportModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:999; align-items:center; justify-content:center; padding:16px;">
+  <div style="background:var(--bg-panel); border:1px solid var(--line); border-radius:16px; padding:16px; max-width:480px; width:100%; max-height:85vh; display:flex; flex-direction:column;">
+    <div style="font-weight:800; font-size:14px; margin-bottom:10px;">📝 Reporte listo</div>
+    <textarea id="reportModalText" readonly style="flex:1; min-height:280px; max-height:50vh; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:10px; padding:10px; font-size:12px; font-family:inherit; white-space:pre-wrap; resize:vertical;"></textarea>
+    <div style="display:flex; gap:8px; margin-top:12px;">
+      <button type="button" id="reportCopyBtn" class="save-btn" style="flex:1;">📋 Copiar</button>
+      <a id="reportWhatsAppLink" href="#" target="_blank" class="save-btn" style="flex:1; text-align:center; text-decoration:none; display:flex; align-items:center; justify-content:center;">💬 Abrir en WhatsApp</a>
+    </div>
+    <button type="button" id="reportCloseBtn" style="margin-top:8px; background:none; border:none; color:var(--ink-faint); font-size:12.5px; padding:8px;">Cerrar</button>
+  </div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -568,7 +600,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 43;
+const APP_VERSION = 44;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -1054,6 +1086,60 @@ function saveCuotaForm(){
   };
   const ok = saveCuota(cuotaMonthKey, values);
   showToast(ok ? 'Cuota guardada ✓' : 'No se pudo guardar', !ok);
+}
+
+// ---- COMMISSION RATES (optional, per category $ per sale) ----
+function loadCommissionRates(){
+  const raw = storageGet('cp_commission_rates');
+  if(raw){ try{ return JSON.parse(raw); }catch(e){} }
+  return {postpago:0, renov:0, prepago:0, seguros:0, acc:0};
+}
+function saveCommissionRates(values){
+  return storageSet('cp_commission_rates', JSON.stringify(values));
+}
+function populateCommissionForm(){
+  const c = loadCommissionRates();
+  CATS.forEach(cat=>{
+    const el = document.getElementById(`comm-${cat.id}`);
+    if(el) el.value = c[cat.id] || '';
+  });
+}
+function saveCommissionForm(){
+  const values = {};
+  CATS.forEach(cat=>{ values[cat.id] = Number(document.getElementById(`comm-${cat.id}`).value)||0; });
+  const ok = saveCommissionRates(values);
+  showToast(ok ? 'Comisión guardada ✓' : 'No se pudo guardar', !ok);
+}
+
+// ---- HIRE DATES (optional, for "antigüedad" in the monthly report) ----
+function loadHireDates(){
+  const raw = storageGet('cp_hire_dates');
+  if(raw){ try{ return JSON.parse(raw); }catch(e){} }
+  return {};
+}
+function saveHireDates(values){
+  return storageSet('cp_hire_dates', JSON.stringify(values));
+}
+function populateHireForm(){
+  const h = loadHireDates();
+  EXECS.forEach(ex=>{
+    const el = document.getElementById(`hire-${ex.id}`);
+    if(el) el.value = h[ex.id] || '';
+  });
+}
+function saveHireForm(){
+  const values = {};
+  EXECS.forEach(ex=>{ values[ex.id] = document.getElementById(`hire-${ex.id}`).value || ''; });
+  const ok = saveHireDates(values);
+  showToast(ok ? 'Fecha guardada ✓' : 'No se pudo guardar', !ok);
+}
+function monthsSince(dateStr){
+  if(!dateStr) return null;
+  const start = new Date(dateStr+'T00:00:00');
+  const now = new Date();
+  let months = (now.getFullYear()-start.getFullYear())*12 + (now.getMonth()-start.getMonth());
+  if(now.getDate() < start.getDate()) months--;
+  return Math.max(0, months);
 }
 
 // ---- MONTHLY MANUAL CORRECTIONS ----
@@ -2319,6 +2405,12 @@ document.getElementById('cuotaMonthNext').addEventListener('click', ()=>{
 ['cuota-postpago','cuota-renov','cuota-prepago','cuota-seguros','cuota-acc'].forEach(id=>{
   document.getElementById(id).addEventListener('change', saveCuotaForm);
 });
+['comm-postpago','comm-renov','comm-acc','comm-seguros','comm-prepago'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', saveCommissionForm);
+});
+['hire-alma','hire-denisse','hire-godoy'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', saveHireForm);
+});
 
 // ---- THEME ----
 function applyTheme(theme){
@@ -2708,6 +2800,203 @@ function iaQueFaltaPara80(){
   return `🎯 <b>Para llegar al 80% esta semana:</b><br>${lines.join('<br>')}`;
 }
 
+// ---- RICH SHARE REPORTS (matching the manual WhatsApp format Carlos used to write by hand) ----
+function formatRangeDates(start, end){
+  const meses = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+  const s = `${String(start.getDate()).padStart(2,'0')} ${meses[start.getMonth()]}`;
+  const e = `${String(end.getDate()).padStart(2,'0')} ${meses[end.getMonth()]} ${end.getFullYear()}`;
+  return `${s} AL ${e}`;
+}
+function reportIcon(actual, goal){
+  if(goal<=0) return '';
+  if(actual>=goal) return '✅';
+  if(actual>0) return '⚠️';
+  return '❌';
+}
+
+function generarReporteSemanal(){
+  const today = new Date();
+  const monday = getMonday(today);
+  const sunday = new Date(monday); sunday.setDate(monday.getDate()+6);
+  const weekKey = getISOWeekString(monday);
+  const weekNum = parseInt(weekKey.split('-W')[1], 10);
+  const weekCuota = loadWeekCuota(weekKey);
+
+  const execTotals = {};
+  EXECS.forEach(ex=> execTotals[ex.id] = {postpago:0, renov:0, acc:0, seguros:0, prepago:0});
+  for(let i=0;i<7;i++){
+    const d = new Date(monday); d.setDate(monday.getDate()+i);
+    if(d>today) break;
+    const dv = loadDay(fmtDate(d));
+    EXECS.forEach(ex=> CATS.forEach(c=> execTotals[ex.id][c.id] += dv[ex.id][c.id]||0));
+  }
+  const splitPerCat = {}; CATS.forEach(c=> splitPerCat[c.id] = splitEvenly(weekCuota[c.id]||0, EXECS.length));
+
+  const execSummaries = EXECS.map((ex, idx)=>{
+    const et = execTotals[ex.id];
+    let totalVentas = 0, totalObjetivo = 0;
+    const catLines = CATS.map(c=>{
+      const goal = splitPerCat[c.id][idx];
+      const actual = et[c.id]||0;
+      totalVentas += actual; totalObjetivo += goal;
+      const icon = reportIcon(actual, goal);
+      if(goal<=0) return `${c.emoji} ${c.label} ${actual}`;
+      if(icon==='⚠️'){
+        const falta = goal-actual;
+        return `${c.emoji} ${c.label} ${actual} de ${goal} ${icon} (Falta${falta===1?'':'n'} ${falta})`;
+      }
+      const pct = Math.round((actual/goal)*100);
+      return `${c.emoji} ${c.label} ${actual} de ${goal} ${icon} (${pct}%)`;
+    });
+    const avancePct = totalObjetivo>0 ? Math.round((totalVentas/totalObjetivo)*1000)/10 : 0;
+    return {ex, catLines, totalVentas, totalObjetivo, avancePct};
+  });
+  execSummaries.sort((a,b)=> b.avancePct - a.avancePct);
+
+  const medals = ['🥇','🥈','🥉'];
+  let msg = `📊 ACTUALIZACIÓN DE VENTAS – SEMANA ${weekNum} (${formatRangeDates(monday, sunday)})\n🏆 ORDENADOS POR RESULTADO GENERAL\n\n━━━━━━━━━━━━━━\n\n`;
+  execSummaries.forEach((s,i)=>{
+    msg += `${medals[i]||(i+1)+'.'} ${i+1}.º LUGAR — ${s.ex.name}\n\n`;
+    msg += s.catLines.join('\n') + '\n\n';
+    msg += `📈 Avance: ${s.totalVentas} de ${s.totalObjetivo} objetivos (${s.avancePct}%)\n\n━━━━━━━━━━━━━━\n\n`;
+  });
+
+  const teamTotals = {}; CATS.forEach(c=> teamTotals[c.id] = EXECS.reduce((sum,ex)=> sum+execTotals[ex.id][c.id], 0));
+  msg += `📈 AVANCE TOTAL DEL EQUIPO\n\n`;
+  CATS.forEach(c=>{
+    const actual = teamTotals[c.id], goal = weekCuota[c.id]||0;
+    const icon = reportIcon(actual, goal);
+    const pct = goal>0 ? Math.round((actual/goal)*100) : 0;
+    msg += `${c.emoji} ${c.label} ${actual} de ${goal} ${icon}${goal>0?` (${pct}%)`:''}\n`;
+  });
+
+  msg += `\n━━━━━━━━━━━━━━\n\n🏆 RESULTADO GENERAL\n\n`;
+  execSummaries.forEach((s,i)=>{
+    msg += `${medals[i]||(i+1)+'.'} ${s.ex.name.split(' ')[0]} — ${s.avancePct}% (${s.totalVentas} ventas)\n`;
+  });
+  const grandVentas = sumVals(teamTotals);
+  const grandObjetivo = sumVals(weekCuota);
+  const grandPct = grandObjetivo>0 ? Math.round((grandVentas/grandObjetivo)*1000)/10 : 0;
+  msg += `\n📊 Cumplimiento global del equipo: ${grandPct}% (${grandVentas} de ${grandObjetivo} objetivos).`;
+
+  return msg;
+}
+
+function generarReporteMensual(){
+  const today = new Date();
+  const monthKey = monthKeyFromDate(today);
+  const cuota = loadCuota(monthKey);
+  const commRates = loadCommissionRates();
+  const hireDates = loadHireDates();
+  const hasCommission = CATS.some(c=> (commRates[c.id]||0) > 0);
+
+  const execTotals = {};
+  EXECS.forEach(ex=> execTotals[ex.id] = {postpago:0, renov:0, acc:0, seguros:0, prepago:0});
+  for(let day=1; day<=today.getDate(); day++){
+    const dStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const dv = loadDay(dStr);
+    EXECS.forEach(ex=> CATS.forEach(c=> execTotals[ex.id][c.id] += dv[ex.id][c.id]||0));
+  }
+  const splitPerCat = {}; CATS.forEach(c=> splitPerCat[c.id] = splitEvenly(cuota[c.id]||0, EXECS.length));
+
+  const monthNameCap = today.toLocaleDateString('es-MX',{month:'long'});
+  const monthName = monthNameCap.toUpperCase();
+  const isLastDay = today.getDate() === new Date(today.getFullYear(), today.getMonth()+1, 0).getDate();
+  const dateLineRaw = today.toLocaleDateString('es-MX', {weekday:'long', day:'numeric', month:'long'});
+  const dateLine = dateLineRaw.charAt(0).toUpperCase()+dateLineRaw.slice(1);
+
+  let msg = `📊 CIERRE DE MES - ${monthName} ${today.getFullYear()} 📊\n📅 ${dateLine}${isLastDay?'':' (corte parcial, aún no termina el mes)'}\n\n━━━━━━━━━━━━━━\n\n`;
+
+  const execSummaries = EXECS.map((ex, idx)=>{
+    const et = execTotals[ex.id];
+    let totalVentas = 0, totalObjetivo = 0, comision = 0;
+    const lines = CATS.map(c=>{
+      const val = et[c.id]||0;
+      totalVentas += val;
+      totalObjetivo += splitPerCat[c.id][idx];
+      comision += val * (commRates[c.id]||0);
+      return `• ${c.label}: ${val}`;
+    });
+    const months = monthsSince(hireDates[ex.id]);
+    return {ex, idx, lines, totalVentas, totalObjetivo, comision, months, raw: et};
+  });
+
+  execSummaries.forEach(s=>{
+    msg += `${s.ex.name.split(' ')[0]}\n`;
+    if(s.months!==null) msg += `📆 Antigüedad: ${s.months} ${s.months===1?'mes':'meses'}\n`;
+    msg += `\n${s.lines.join('\n')}\n`;
+    if(hasCommission) msg += `\n💰 Comisión generada: $${Math.round(s.comision).toLocaleString('es-MX')}\n`;
+    msg += `\n━━━━━━━━━━━━━━\n\n`;
+  });
+
+  const teamTotals = {}; CATS.forEach(c=> teamTotals[c.id] = EXECS.reduce((sum,ex)=> sum+execTotals[ex.id][c.id],0));
+  msg += `📈 TOTAL EQUIPO\n\n`;
+  CATS.forEach(c=>{
+    const actual = teamTotals[c.id], goal = cuota[c.id]||0;
+    const pct = goal>0 ? Math.round((actual/goal)*1000)/10 : 0;
+    const icon = reportIcon(actual, goal);
+    msg += `${icon} ${c.label}: ${actual} de ${goal}${goal>0?` (${pct}%)`:''}\n`;
+  });
+
+  msg += `\n━━━━━━━━━━━━━━\n\n`;
+
+  const rankBy = hasCommission
+    ? [...execSummaries].sort((a,b)=> b.comision-a.comision)
+    : [...execSummaries].sort((a,b)=> b.totalVentas-a.totalVentas);
+  const medals = ['🥇','🥈','🥉'];
+  msg += `🏆 RANKING DEL MES ${hasCommission?'(COMISIÓN GENERADA)':'(VENTAS TOTALES)'}\n\n`;
+  rankBy.forEach((s,i)=>{
+    msg += `${medals[i]||(i+1)+'.'} ${s.ex.name.split(' ')[0]} — ${hasCommission ? '$'+Math.round(s.comision).toLocaleString('es-MX') : s.totalVentas+' ventas'}\n`;
+  });
+
+  const campeon = [...execSummaries].sort((a,b)=>{
+    const pa = a.totalObjetivo>0 ? a.totalVentas/a.totalObjetivo : 0;
+    const pb = b.totalObjetivo>0 ? b.totalVentas/b.totalObjetivo : 0;
+    return pb-pa;
+  })[0];
+  const mayorVolumen = [...execSummaries].sort((a,b)=> b.totalVentas-a.totalVentas)[0];
+  const integral = [...execSummaries].sort((a,b)=>{
+    const countMet = s => CATS.filter(c=> s.raw[c.id] >= splitPerCat[c.id][s.idx]).length;
+    return countMet(b)-countMet(a);
+  })[0];
+
+  msg += `\n━━━━━━━━━━━━━━\n\n🏆 RECONOCIMIENTOS DEL MES\n\n`;
+  msg += `🥇 Campeón del mes: ${campeon.ex.name.split(' ')[0]}\n`;
+  msg += `🥇 Mejor venta integral: ${integral.ex.name.split(' ')[0]}\n`;
+  msg += `🥇 Mayor volumen de ventas: ${mayorVolumen.ex.name.split(' ')[0]}\n`;
+
+  const grandVentas = sumVals(teamTotals);
+  const grandObjetivo = sumVals(cuota);
+  const grandPct = grandObjetivo>0 ? Math.round((grandVentas/grandObjetivo)*1000)/10 : 0;
+  msg += `\n💪 Cumplimiento del mes: ${grandPct}% (${grandVentas} de ${grandObjetivo}).`;
+
+  return msg;
+}
+
+function showReportModal(text){
+  const modal = document.getElementById('reportModal');
+  const textarea = document.getElementById('reportModalText');
+  const waLink = document.getElementById('reportWhatsAppLink');
+  textarea.value = text;
+  waLink.href = `https://wa.me/?text=${encodeURIComponent(text)}`;
+  modal.style.display = 'flex';
+}
+document.getElementById('reportCloseBtn').addEventListener('click', ()=>{
+  document.getElementById('reportModal').style.display = 'none';
+});
+document.getElementById('reportCopyBtn').addEventListener('click', ()=>{
+  const textarea = document.getElementById('reportModalText');
+  textarea.select();
+  try{
+    navigator.clipboard.writeText(textarea.value).then(()=> showToast('Copiado ✓'));
+  }catch(e){
+    document.execCommand('copy');
+    showToast('Copiado ✓');
+  }
+});
+document.getElementById('reporteSemanaBtn').addEventListener('click', ()=> showReportModal(generarReporteSemanal()));
+document.getElementById('reporteMesBtn').addEventListener('click', ()=> showReportModal(generarReporteMensual()));
+
 function iaGenerarMensajeWhatsApp(){
   const dayVals = loadDay(fmtDate(new Date()));
   const totals = {postpago:0, renov:0, prepago:0, seguros:0, acc:0};
@@ -2908,6 +3197,8 @@ function checkForUpdate(){
       initialRenderDone = true;
       populateWeekCuotaForm();
       populateCuotaForm();
+      populateCommissionForm();
+      populateHireForm();
       setDate(new Date());
       if(isLoggedIn()){ applyRolePermissions(); }
     } else {
