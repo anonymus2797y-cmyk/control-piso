@@ -415,6 +415,7 @@
   <button class="tab-btn active" data-view="hoy">Hoy</button>
   <button class="tab-btn" data-view="semana">Semana</button>
   <button class="tab-btn" data-view="mes">Mes</button>
+  <button class="tab-btn" data-view="equipo">Equipo</button>
   <button class="tab-btn" data-view="cierre">Cierre</button>
   <button class="tab-btn" data-view="ia">IA</button>
   <button class="tab-btn" data-view="metas">Metas</button>
@@ -480,6 +481,18 @@
     <div class="insight-bar" id="monthInsight"></div>
     <button class="save-btn" id="shareMesBtn">📤 Compartir avance del mes</button>
 
+  </section>
+
+  <!-- EQUIPO -->
+  <section class="view" id="view-equipo">
+    <div class="section-title" style="margin-top:0;">🏆 Ventas totales — esta semana</div>
+    <div class="podium" id="equipoRanking"></div>
+    <div class="section-title">📊 Cumplimiento de la semana</div>
+    <div class="podium" id="equipoCumplimiento"></div>
+    <div class="section-title">📈 Tendencia vs semana pasada</div>
+    <div id="equipoTendencia"></div>
+    <div class="section-title">🥧 Aporte al equipo</div>
+    <div class="podium" id="equipoAporte"></div>
   </section>
 
   <!-- CIERRE -->
@@ -555,7 +568,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 40;
+const APP_VERSION = 42;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -726,6 +739,7 @@ function rerenderActiveView(){
   if(view==='hoy') renderHoy();
   else if(view==='semana') renderSemana();
   else if(view==='mes') renderMes();
+  else if(view==='equipo') renderEquipo();
   else if(view==='cierre') renderCierre();
 }
 
@@ -908,6 +922,58 @@ function renderPostpagoPodium(elId, totalsByExec, unit, ascending){
       </div>
     </div>
   `).join('');
+}
+
+// ---- EQUIPO: real numbers, real bars, no chatty prose ----
+function renderEquipo(){
+  const today = new Date();
+  const monday = getMonday(today);
+
+  const weekExecTotals = {}; EXECS.forEach(ex=> weekExecTotals[ex.id]=0);
+  const lastWeekExecTotals = {}; EXECS.forEach(ex=> lastWeekExecTotals[ex.id]=0);
+  for(let i=0;i<7;i++){
+    const d = new Date(monday); d.setDate(monday.getDate()+i);
+    if(d<=today){
+      const dv = loadDay(fmtDate(d));
+      EXECS.forEach(ex=> weekExecTotals[ex.id] += totalFor(dv[ex.id]));
+    }
+    const dLast = new Date(monday); dLast.setDate(monday.getDate()+i-7);
+    const dvLast = loadDay(fmtDate(dLast));
+    EXECS.forEach(ex=> lastWeekExecTotals[ex.id] += totalFor(dvLast[ex.id]));
+  }
+
+  renderPostpagoPodium('equipoRanking', weekExecTotals, 'ventas');
+
+  const weekCuota = loadWeekCuota(getISOWeekString(monday));
+  const weekCuotaTotal = sumVals(weekCuota);
+  const fairShareWeek = weekCuotaTotal / EXECS.length;
+  const pctByExec = {};
+  EXECS.forEach(ex=> pctByExec[ex.id] = fairShareWeek>0 ? Math.round((weekExecTotals[ex.id]/fairShareWeek)*100) : 0);
+  renderPostpagoPodium('equipoCumplimiento', pctByExec, '%');
+
+  const teamTotal = sumVals(weekExecTotals);
+  const shareByExec = {};
+  EXECS.forEach(ex=> shareByExec[ex.id] = teamTotal>0 ? Math.round((weekExecTotals[ex.id]/teamTotal)*100) : 0);
+  renderPostpagoPodium('equipoAporte', shareByExec, '%');
+
+  const tendenciaEl = document.getElementById('equipoTendencia');
+  if(tendenciaEl){
+    tendenciaEl.innerHTML = EXECS.map(ex=>{
+      const cur = weekExecTotals[ex.id];
+      const prev = lastWeekExecTotals[ex.id];
+      let icon='➖', label='Sin datos de la semana pasada', color='var(--ink-faint)';
+      if(prev>0 || cur>0){
+        const diffPct = prev>0 ? Math.round(((cur-prev)/prev)*100) : 100;
+        if(cur > prev*1.1){ icon='📈'; label=`Mejorando (${diffPct>=0?'+':''}${diffPct}%)`; color='var(--renov)'; }
+        else if(cur < prev*0.9){ icon='📉'; label=`Bajando (${diffPct}%)`; color='var(--bad)'; }
+        else { icon='➖'; label=`Igual (${diffPct>=0?'+':''}${diffPct}%)`; color='var(--ink-dim)'; }
+      }
+      return `<div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:var(--bg-panel); border:1px solid var(--line); border-radius:12px; margin-bottom:8px;">
+        <span style="font-weight:700; font-size:13px;">${ex.name}</span>
+        <span style="color:${color}; font-weight:700; font-size:12.5px;">${icon} ${label}</span>
+      </div>`;
+    }).join('');
+  }
 }
 
 // daysElapsed/totalDays let it project where each category will land if the
@@ -2193,6 +2259,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     if(btn.dataset.view==='hoy'){ renderHoy(); }
     if(btn.dataset.view==='semana'){ currentWeekAnchor = new Date(currentDate); renderSemana(); }
     if(btn.dataset.view==='mes'){ mesViewAnchor = new Date(currentDate); renderMes(); }
+    if(btn.dataset.view==='equipo'){ renderEquipo(); }
     if(btn.dataset.view==='cierre'){ renderCierre(); }
   });
 });
@@ -2277,9 +2344,7 @@ const IA_ACTIONS = [
   {emoji:'📈', label:'¿Quién convierte mejor?', key:'conversion'},
   {emoji:'📋', label:'¿Quién tiene seguimientos pendientes?', key:'seguimiento'},
   {emoji:'🎯', label:'¿Qué falta para el 80% semanal?', key:'meta80'},
-  {emoji:'🏁', label:'¿Cómo cerrar el mes?', key:'cerrar_mes'},
-  {emoji:'📱', label:'Generar mensaje para WhatsApp', key:'whatsapp'},
-  {emoji:'📈', label:'Pronosticar cierre de mes', key:'pronostico'}
+  {emoji:'🏁', label:'¿Cómo cerrar el mes?', key:'cerrar_mes'}
 ];
 
 function renderIaQuickCards(){
@@ -2459,13 +2524,23 @@ function iaShareBelowFair(execTotals){
 
 function iaQuienNecesitaApoyo(){
   const today = new Date();
+  const dateStr = fmtDate(today);
 
-  // Hoy: comparación exacta vs su meta diaria individual
-  const dayVals = loadDay(fmtDate(today));
-  const commit = loadDayCommit(fmtDate(today));
-  const dayResults = EXECS.map(ex=>({ex, pct: cumplimientoPct(dayVals[ex.id], commit)}));
+  // Hoy: comparación exacta vs su meta diaria individual, solo entre quienes
+  // están en piso hoy, y con manejo honesto de "aún nadie ha vendido".
+  const dayVals = loadDay(dateStr);
+  const commit = loadDayCommit(dateStr);
+  const activeIds = getActiveExecIds(dateStr);
+  const activeExecsList = EXECS.filter(ex=>activeIds.includes(ex.id));
+  const goalPerExec = activeExecsList.length>0 ? Math.round(sumVals(commit)/activeExecsList.length) : 0;
+  const dayResults = activeExecsList.map(ex=>({
+    ex,
+    total: totalFor(dayVals[ex.id]),
+    pct: goalPerExec>0 ? Math.round((totalFor(dayVals[ex.id])/goalPerExec)*100) : 0
+  }));
   dayResults.sort((a,b)=> a.pct-b.pct);
   const dayLowest = dayResults[0];
+  const anySalesToday = dayResults.some(r=>r.total>0);
 
   // Semana: quién ha aportado menos del total del equipo (lo esperado es ~33% cada uno)
   const monday = getMonday(today);
@@ -2481,16 +2556,22 @@ function iaQuienNecesitaApoyo(){
   // Mes: mismo principio pero acumulado del mes
   const monthExecTotals = {}; EXECS.forEach(ex=> monthExecTotals[ex.id]=0);
   for(let day=1; day<=today.getDate(); day++){
-    const dateStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    const dv = loadDay(dateStr);
+    const dStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const dv = loadDay(dStr);
     EXECS.forEach(ex=> monthExecTotals[ex.id] += totalFor(dv[ex.id]));
   }
   const monthLowest = iaShareBelowFair(monthExecTotals);
 
   const lines = [];
-  lines.push(dayLowest.pct>=100
-    ? 'Hoy: los 3 van bien ✅'
-    : `Hoy: <b>${dayLowest.ex.name}</b> más atrás (${dayLowest.pct}% de su meta diaria)`);
+  if(activeExecsList.length===0){
+    lines.push('Hoy: nadie está marcado en piso.');
+  } else if(!anySalesToday){
+    lines.push('Hoy: aún nadie ha registrado ventas — muy pronto para saber quién necesita apoyo.');
+  } else if(dayLowest.pct>=100){
+    lines.push('Hoy: los que están en piso van bien ✅');
+  } else {
+    lines.push(`Hoy: <b>${dayLowest.ex.name}</b> más atrás (${dayLowest.pct}% de su meta diaria)`);
+  }
   lines.push(weekLowest
     ? `Semana: <b>${weekLowest.ex.name}</b> con menor aporte (${weekLowest.share}% del equipo, lo esperado es ~33%)`
     : 'Semana: aún no hay ventas registradas');
@@ -2503,12 +2584,23 @@ function iaQuienNecesitaApoyo(){
 
 function iaQuienVaMejor(){
   const today = new Date();
-  const dayVals = loadDay(fmtDate(today));
-  const commit = loadDayCommit(fmtDate(today));
-  const dayResults = EXECS.map(ex=>({ex, pct: cumplimientoPct(dayVals[ex.id], commit)}));
-  dayResults.sort((a,b)=> b.pct-a.pct);
+  const dateStr = fmtDate(today);
+  const dayVals = loadDay(dateStr);
+  const commit = loadDayCommit(dateStr);
+  const activeIds = getActiveExecIds(dateStr);
+  const activeExecsList = EXECS.filter(ex=>activeIds.includes(ex.id));
+  if(activeExecsList.length===0) return '😴 Nadie está marcado en piso hoy.';
+  const goalPerExec = Math.round(sumVals(commit) / activeExecsList.length);
+  const dayResults = activeExecsList.map(ex=>({
+    ex,
+    total: totalFor(dayVals[ex.id]),
+    pct: goalPerExec>0 ? Math.round((totalFor(dayVals[ex.id])/goalPerExec)*100) : 0
+  }));
+  const anySales = dayResults.some(r=>r.total>0);
+  if(!anySales) return '🕐 Aún nadie ha registrado ventas hoy — muy pronto para saber quién va mejor.';
+  dayResults.sort((a,b)=> b.total-a.total);
   const best = dayResults[0];
-  return `🏆 <b>${best.ex.name}</b> va mejor hoy (${best.pct}% de su meta diaria). ¡Reconócelo con el equipo!`;
+  return `🏆 <b>${best.ex.name}</b> va mejor hoy con <b>${best.total}</b> ventas (${best.pct}% de su meta diaria). ¡Reconócelo con el equipo!`;
 }
 
 function iaComoCerrarMes(){
@@ -2522,9 +2614,14 @@ function iaComoCerrarMes(){
     if((cuota[c.id]||0)<=0) return `${c.label}: sin cuota definida`;
     if(falta<=0) return `✅ ${c.label}: cuota ya cumplida`;
     const porDia = daysLeft>0 ? Math.ceil(falta/daysLeft) : falta;
-    return `${c.label}: faltan <b>${falta}</b> → ${daysLeft>0 ? `${porDia} por día en los ${daysLeft} días que quedan` : 'hoy cierra el mes'}`;
+    return daysLeft>0
+      ? `${c.label}: faltan <b>${falta}</b> (${porDia} por día)`
+      : `${c.label}: faltan <b>${falta}</b>`;
   });
-  return `🏁 <b>Para cerrar el mes con la cuota completa:</b><br>${lines.join('<br>')}`;
+  const header = daysLeft>0
+    ? `🏁 <b>Para cerrar el mes con la cuota completa (quedan ${daysLeft} días):</b>`
+    : `🏁 <b>Hoy cierra el mes — así va la cuota:</b>`;
+  return `${header}<br>${lines.join('<br>')}`;
 }
 
 function iaPronosticoMes(){
@@ -2645,7 +2742,7 @@ function runIaAction(key, labelText){
       case 'gracias': response = iaPick(['¡Con gusto! 🙌', 'Para eso estoy 👍', 'De nada, aquí sigo si necesitas algo más.']); break;
       case 'despedida': response = iaPick(['¡Nos vemos! Aquí estaré cuando me necesites 👋', 'Va, cualquier cosa aquí ando.']); break;
       case 'como_estas': response = 'Muy bien, listo para ayudarte con la tienda 💪 ¿Qué revisamos?'; break;
-      case 'ayuda': response = 'Puedo platicarte sobre:<br>• Cómo vamos (hoy/semana/mes)<br>• Qué está atrasado<br>• Quién necesita apoyo (o "quién es el menos productivo")<br>• Quién va mejor<br>• Quién convierte mejor (cotizaciones → cierres)<br>• Quién tiene seguimientos pendientes<br>• Qué falta para el 80% semanal<br>• Cómo cerrar el mes<br>• Pronóstico de cierre<br>• Generar mensaje para WhatsApp<br>• También puedes preguntarme por un ejecutivo (ej. "cómo va Alma") o un indicador (ej. "cómo va Postpago")'; break;
+      case 'ayuda': response = 'Puedo platicarte sobre:<br>• Cómo vamos (hoy/semana/mes)<br>• Qué está atrasado<br>• Quién necesita apoyo (o "quién es el menos productivo")<br>• Quién va mejor<br>• Quién convierte mejor (cotizaciones → cierres)<br>• Quién tiene seguimientos pendientes<br>• Qué falta para el 80% semanal<br>• Cómo cerrar el mes<br>• También puedes preguntarme por un ejecutivo (ej. "cómo va Alma") o un indicador (ej. "cómo va Postpago")'; break;
       default: response = 'No entendí bien esa pregunta 🤔. Escribe "ayuda" para ver de qué te puedo hablar, o toca una tarjeta de arriba.';
     }
   }
@@ -2743,11 +2840,11 @@ function applyRolePermissions(){
   const commitInputs = document.querySelectorAll('#commitRow input');
   const metasInputs = document.querySelectorAll('#view-metas input');
 
-  // Every tab is visible to everyone EXCEPT the IA assistant, which is
-  // gerente-only. Editing restrictions elsewhere are enforced inside
-  // renderCards/renderMes/renderCierre themselves.
+  // Every tab is visible to everyone EXCEPT the IA assistant and the Equipo
+  // comparison view, which are gerente-only. Editing restrictions elsewhere
+  // are enforced inside renderCards/renderMes/renderCierre themselves.
   tabButtons.forEach(b=>{
-    b.style.display = (b.dataset.view === 'ia' && role !== 'gerente') ? 'none' : '';
+    b.style.display = ((b.dataset.view === 'ia' || b.dataset.view === 'equipo') && role !== 'gerente') ? 'none' : '';
   });
   execSwitchWrap.style.display = 'flex';
 
