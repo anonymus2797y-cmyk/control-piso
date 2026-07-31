@@ -555,7 +555,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 39;
+const APP_VERSION = 40;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -1092,10 +1092,13 @@ function computeStreak(execId){
   for(let i=0; i<60; i++){
     d.setDate(d.getDate()-1);
     const dateStr = fmtDate(d);
+    const statusThatDay = loadDayStatus(dateStr)[execId] || 'piso';
+    if(statusThatDay !== 'piso' && statusThatDay !== 'comida') continue; // day off/absent — doesn't break or count
     const commit = loadDayCommit(dateStr);
     const totalCommit = sumVals(commit);
     if(totalCommit<=0) break;
-    const fairShare = totalCommit / EXECS.length;
+    const activeIdsThatDay = getActiveExecIds(dateStr);
+    const fairShare = totalCommit / Math.max(1, activeIdsThatDay.length);
     const execTotal = totalFor(loadDay(dateStr)[execId]);
     if(execTotal >= fairShare){ streak++; } else { break; }
   }
@@ -1103,17 +1106,24 @@ function computeStreak(execId){
 }
 
 // Bronce/Plata/Oro/Diamante badge based on this exec's month-to-date
-// cumplimiento vs their fair share of the month's cuota.
+// cumplimiento vs their fair share of the month's cuota — prorated by how
+// many of those days they were actually marked as working, so time off
+// doesn't unfairly drag the badge down (or inflate it).
 function computeNivel(execId){
   const today = new Date();
   const cuota = loadCuota(monthKeyFromDate(today));
-  const fairShare = sumVals(cuota) / EXECS.length;
+  const fairShareFull = sumVals(cuota) / EXECS.length;
   let execMonthTotal = 0;
-  for(let day=1; day<=today.getDate(); day++){
+  let activeDays = 0;
+  const totalDays = today.getDate();
+  for(let day=1; day<=totalDays; day++){
     const dateStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     execMonthTotal += totalFor(loadDay(dateStr)[execId]);
+    const s = loadDayStatus(dateStr)[execId] || 'piso';
+    if(s==='piso' || s==='comida') activeDays++;
   }
-  const pct = fairShare>0 ? (execMonthTotal/fairShare*100) : 0;
+  const adjustedFairShare = fairShareFull * (activeDays / Math.max(1, totalDays));
+  const pct = adjustedFairShare>0 ? (execMonthTotal/adjustedFairShare*100) : (execMonthTotal>0 ? 100 : 0);
   if(pct>=100) return {emoji:'💎', label:'Diamante'};
   if(pct>=80) return {emoji:'🥇', label:'Oro'};
   if(pct>=60) return {emoji:'🥈', label:'Plata'};
@@ -1476,6 +1486,18 @@ function renderDashboardSummary(){
   EXECS.forEach(ex=> CATS.forEach(c=> totals[c.id] += dayData[ex.id][c.id]||0));
   const totalSold = sumVals(totals);
   const totalCommit = sumVals(commit);
+
+  // Execs just want to capture their numbers quickly — give them one light
+  // line instead of the full manager dashboard (Índice de Piso, MVP, Riesgo,
+  // alerts). The full picture stays gerente-only.
+  if(currentRole() !== 'gerente'){
+    const pctLite = totalCommit>0 ? Math.round(totalSold/totalCommit*100) : 0;
+    el.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-panel); border:1px solid var(--line); border-radius:12px; padding:10px 14px; margin-bottom:14px; font-size:12.5px;">
+      <span>📊 Equipo hoy: <b>${totalSold}</b> ventas</span>
+      <span style="color:${pctLite>=100?'var(--renov)':pctLite>=60?'var(--acc)':'var(--bad)'}; font-weight:800;">${pctLite}%</span>
+    </div>`;
+    return;
+  }
   const pct = totalCommit>0 ? Math.round(totalSold/totalCommit*100) : 0;
   const barColor = pct>=100?'var(--renov)':pct>=60?'var(--acc)':'var(--bad)';
 
@@ -1505,7 +1527,7 @@ function renderDashboardSummary(){
   results.sort((a,b)=> a.pct-b.pct);
   const risky = results[0];
   let riesgoHtml = '';
-  if(risky && risky.pct < 100 && totalCommit>0){
+  if(risky && risky.pct < 50 && totalCommit>0){
     const targets = {};
     CATS.forEach(c=> targets[c.id] = splitEvenlySigned(commit[c.id]||0, activeExecsList.length||1));
     const riskyIdx = activeExecsList.findIndex(ex=>ex.id===risky.ex.id);
