@@ -600,7 +600,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 44;
+const APP_VERSION = 45;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -893,10 +893,11 @@ function saveDayCommit(dateStr, values){
 }
 function renderCommitForm(){
   const row = document.getElementById('commitRow');
+  const dis = currentRole()==='exec' ? 'disabled' : '';
   row.innerHTML = CATS.map(c=>`
     <div class="kpi ${c.cls}">
       <div class="label">${c.label}</div>
-      <input type="number" min="0" class="val commit-input" data-cat="${c.id}" value="${currentDayCommit[c.id]||0}">
+      <input type="number" min="0" class="val commit-input" ${dis} data-cat="${c.id}" value="${currentDayCommit[c.id]||0}">
     </div>
   `).join('');
   row.querySelectorAll('.commit-input').forEach(inp=>{
@@ -1709,7 +1710,8 @@ function renderDashboardSummary(){
   const dayStatusNow = loadDayStatus(fmtDate(currentDate));
   const activeCount = EXECS.filter(ex => (dayStatusNow[ex.id]||'piso') === 'piso').length;
   let floorLevel, floorEmoji, riskLabel;
-  if(pct>=80 && activeCount===EXECS.length){ floorLevel='Excelente'; floorEmoji='🟢'; riskLabel='Bajo'; }
+  if(totalCommit<=0){ floorLevel='Sin cuota definida'; floorEmoji='⚪'; riskLabel='—'; }
+  else if(pct>=80 && activeCount===EXECS.length){ floorLevel='Excelente'; floorEmoji='🟢'; riskLabel='Bajo'; }
   else if(pct>=60){ floorLevel='Atención'; floorEmoji='🟡'; riskLabel='Bajo'; }
   else if(pct>=35){ floorLevel='Riesgo'; floorEmoji='🟠'; riskLabel='Medio'; }
   else { floorLevel='Crítico'; floorEmoji='🔴'; riskLabel='Alto'; }
@@ -1718,9 +1720,11 @@ function renderDashboardSummary(){
     const need = (commit[c.id]||0) - (totals[c.id]||0);
     return need>0 ? `${c.label} <b>${need}</b>` : null;
   }).filter(Boolean);
-  const faltaHtml = faltantes.length
-    ? `<div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--line); font-size:12px; color:var(--ink-dim);">Falta para la cuota de hoy: ${faltantes.join(', ')}</div>`
-    : `<div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--line); font-size:12px; color:var(--renov); font-weight:700;">✅ Cuota del día completa</div>`;
+  const faltaHtml = totalCommit<=0
+    ? `<div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--line); font-size:12px; color:var(--ink-faint);">⚪ Aún no se ha definido el compromiso de hoy.</div>`
+    : faltantes.length
+      ? `<div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--line); font-size:12px; color:var(--ink-dim);">Falta para la cuota de hoy: ${faltantes.join(', ')}</div>`
+      : `<div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--line); font-size:12px; color:var(--renov); font-weight:700;">✅ Cuota del día completa</div>`;
 
   const floorIndexHtml = `
     <div style="background:var(--bg-panel); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:14px; box-shadow:var(--shadow);">
@@ -2987,11 +2991,14 @@ document.getElementById('reportCloseBtn').addEventListener('click', ()=>{
 document.getElementById('reportCopyBtn').addEventListener('click', ()=>{
   const textarea = document.getElementById('reportModalText');
   textarea.select();
-  try{
-    navigator.clipboard.writeText(textarea.value).then(()=> showToast('Copiado ✓'));
-  }catch(e){
-    document.execCommand('copy');
-    showToast('Copiado ✓');
+  function fallbackCopy(){
+    try{ document.execCommand('copy'); showToast('Copiado ✓'); }
+    catch(e){ showToast('No se pudo copiar — selecciona el texto manualmente', true); }
+  }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(textarea.value).then(()=> showToast('Copiado ✓')).catch(fallbackCopy);
+  } else {
+    fallbackCopy();
   }
 });
 document.getElementById('reporteSemanaBtn').addEventListener('click', ()=> showReportModal(generarReporteSemanal()));
