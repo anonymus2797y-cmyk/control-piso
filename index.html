@@ -568,7 +568,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 42;
+const APP_VERSION = 43;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -1504,6 +1504,8 @@ function getDashboardAlert(totals, commit){
   const elapsed = elapsedRaw;
 
   const PRIORITY_CAT_IDS = ['postpago', 'renov']; // Carlos's main focus categories
+  const GRACE_MINUTES = 20; // don't flag "zero sales" in the first few minutes after opening
+  const graceElapsed = GRACE_MINUTES / ((STORE_CLOSE-STORE_OPEN)*60);
 
   function gapFor(catId){
     const cat = CATS.find(c=>c.id===catId);
@@ -1513,6 +1515,10 @@ function getDashboardAlert(totals, commit){
     const actual = totals[catId]||0;
     return {cat, goal, actual, gap: expected-actual};
   }
+  // Zero sales in a category with a real goal is always worth flagging once
+  // the store's been open a little while — a tiny fractional "gap" shouldn't
+  // hide the fact that nothing has sold yet.
+  function isBehind(r){ return r.gap >= 1 || (r.actual===0 && elapsed > graceElapsed); }
 
   // Check the priority categories first — if either is meaningfully behind
   // pace, that's what gets surfaced, even if some other category is worse.
@@ -1521,7 +1527,7 @@ function getDashboardAlert(totals, commit){
     const r = gapFor(id);
     if(r && (!worst || r.gap > worst.gap)) worst = r;
   });
-  const priorityIsBehind = worst && worst.gap >= 1;
+  const priorityIsBehind = worst && isBehind(worst);
 
   if(!priorityIsBehind){
     // Priority categories are on pace — check every category so a genuinely
@@ -1536,7 +1542,7 @@ function getDashboardAlert(totals, commit){
   const timeStr = now.toLocaleTimeString('es-MX', {hour:'numeric', minute:'2-digit'});
   const projected = elapsed>0 ? Math.round(worst.actual/elapsed) : worst.actual;
 
-  if(worst.gap >= 1){
+  if(isBehind(worst)){
     const needed = Math.max(1, Math.ceil(worst.goal - worst.actual));
     return {level:'bad', text: `🔴 Son las ${timeStr} y solo llevan <b>${worst.actual} ${worst.cat.label.toLowerCase()}</b>. Necesitan cerrar <b>${needed} más</b> hoy para cumplir la meta (${worst.goal}).`};
   }
