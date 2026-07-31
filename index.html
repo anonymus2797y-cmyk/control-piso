@@ -557,7 +557,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 32;
+const APP_VERSION = 33;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -1748,39 +1748,53 @@ function renderYearAggregate(monthKey, totals, cuotaThisYear){
 
   elTitle.innerHTML = `📆 ${monthName} ${lastYear} vs ${monthName} ${y} <span style="color:var(--ink-faint); font-weight:600; text-transform:none;">— solo gerente</span>`;
 
-  const manual = loadHistoricalMonth(lastYearKey) || {};
-
-  const editFormHtml = `
-    <div class="goals-form" style="margin-bottom:12px;">
-      <div class="row" style="border-bottom:none; padding-bottom:10px;">
-        <label style="font-weight:800; font-size:12.5px;">Editar ${monthName} ${lastYear} (cuota y cierre)</label>
+  // Only rebuild the editable FORM when we've actually moved to a different
+  // month (via the ‹ › arrows). Never rebuild it just because a field was
+  // saved — that would replace the very input the person is about to tab
+  // into next, losing whatever they were about to type.
+  if(el.dataset.builtFor !== lastYearKey){
+    el.dataset.builtFor = lastYearKey;
+    const manual = loadHistoricalMonth(lastYearKey) || {};
+    el.innerHTML = `
+      <div class="goals-form" style="margin-bottom:12px;">
+        <div class="row" style="border-bottom:none; padding-bottom:10px;">
+          <label style="font-weight:800; font-size:12.5px;">Editar ${monthName} ${lastYear} (cuota y cierre)</label>
+        </div>
+        ${CATS.map(c=>{
+          const m = manual[c.id] || {cuota:0, venta:0};
+          return `
+          <div class="row" style="align-items:flex-start;">
+            <label style="padding-top:6px;"><span class="dot ${c.cls}"></span>${c.label}</label>
+            <div style="display:flex; gap:6px;">
+              <div style="text-align:center;">
+                <div style="font-size:9px; color:var(--ink-faint); font-weight:700;">CUOTA</div>
+                <input type="number" min="0" class="month-cmp-input" data-cat="${c.id}" data-field="cuota" value="${m.cuota||0}" style="width:56px;">
+              </div>
+              <div style="text-align:center;">
+                <div style="font-size:9px; color:var(--ink-faint); font-weight:700;">CIERRE</div>
+                <input type="number" min="0" class="month-cmp-input" data-cat="${c.id}" data-field="venta" value="${m.venta||0}" style="width:56px;">
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
+        <div class="goals-note">Pon la cuota y el cierre real de ${monthName} ${lastYear} (de tu dashboard anterior) — se guarda solo, campo por campo. Usa las flechas ‹ › de Mes para moverte a otro mes y cargar el suyo.</div>
       </div>
-      ${CATS.map(c=>{
-        const m = manual[c.id] || {cuota:0, venta:0};
-        return `
-        <div class="row" style="align-items:flex-start;">
-          <label style="padding-top:6px;"><span class="dot ${c.cls}"></span>${c.label}</label>
-          <div style="display:flex; gap:6px;">
-            <div style="text-align:center;">
-              <div style="font-size:9px; color:var(--ink-faint); font-weight:700;">CUOTA</div>
-              <input type="number" min="0" class="month-cmp-input" data-cat="${c.id}" data-field="cuota" value="${m.cuota||0}" style="width:56px;">
-            </div>
-            <div style="text-align:center;">
-              <div style="font-size:9px; color:var(--ink-faint); font-weight:700;">CIERRE</div>
-              <input type="number" min="0" class="month-cmp-input" data-cat="${c.id}" data-field="venta" value="${m.venta||0}" style="width:56px;">
-            </div>
-          </div>
-        </div>`;
-      }).join('')}
-      <div class="goals-note">Pon la cuota y el cierre real de ${monthName} ${lastYear} (de tu dashboard anterior) — se guarda solo, campo por campo. Usa las flechas ‹ › de Mes para moverte a otro mes y cargar el suyo.</div>
-    </div>
-  `;
+      <div id="monthCmpResult"></div>
+    `;
+    wireMonthCompareForm(lastYearKey, monthName, y, lastYear);
+  }
 
+  renderMonthCompareResult(lastYearKey, monthName, y, lastYear, totals, cuotaThisYear);
+}
+
+function renderMonthCompareResult(lastYearKey, monthName, y, lastYear, totals, cuotaThisYear){
+  const resultEl = document.getElementById('monthCmpResult');
+  if(!resultEl) return;
+  const manual = loadHistoricalMonth(lastYearKey) || {};
   const hasManualData = CATS.some(c => manual[c.id] && (manual[c.id].cuota>0 || manual[c.id].venta>0));
 
   if(!hasManualData){
-    el.innerHTML = editFormHtml + `<div class="insight-bar">Aún no hay datos de <b>${monthName} ${lastYear}</b> — captúralos arriba para activar la comparación de este mes.</div>`;
-    wireMonthCompareForm(el, lastYearKey);
+    resultEl.innerHTML = `<div class="insight-bar">Aún no hay datos de <b>${monthName} ${lastYear}</b> — captúralos arriba para activar la comparación de este mes.</div>`;
     return;
   }
 
@@ -1806,16 +1820,15 @@ function renderYearAggregate(monthKey, totals, cuotaThisYear){
   const arrow = diff>=0 ? '📈' : '📉';
   html += `<div class="insight-bar">${arrow} <b>${monthName} ${lastYear}</b> cerró en <b>${totalPctPrev}%</b> de la cuota (${sumVentaPrev}/${sumCuotaPrev}). <b>${monthName} ${y}</b> lleva <b>${totalPctCur}%</b> (${sumVentaCur}/${sumCuotaCur}) — ${diff>=0?'+':''}${diff} ventas vs el mismo mes del año pasado (${pctDiff>=0?'+':''}${pctDiff}%).</div>`;
 
-  el.innerHTML = editFormHtml + html;
-  wireMonthCompareForm(el, lastYearKey);
+  resultEl.innerHTML = html;
 }
 
-function wireMonthCompareForm(el, lastYearKey){
-  el.querySelectorAll('.month-cmp-input').forEach(inp=>{
+function wireMonthCompareForm(lastYearKey, monthName, y, lastYear){
+  document.querySelectorAll('.month-cmp-input').forEach(inp=>{
     inp.addEventListener('change', ()=>{
       try{
         const values = loadHistoricalMonth(lastYearKey) || {};
-        el.querySelectorAll('.month-cmp-input').forEach(i2=>{
+        document.querySelectorAll('.month-cmp-input').forEach(i2=>{
           const cat = i2.dataset.cat, field = i2.dataset.field;
           if(!values[cat]) values[cat] = {cuota:0, venta:0};
           values[cat][field] = Number(i2.value)||0;
@@ -1832,7 +1845,17 @@ function wireMonthCompareForm(el, lastYearKey){
           console.error('Error guardando en Firestore', err);
           showToast('⚠ No se pudo confirmar en la nube: ' + err.message, true);
         });
-        renderMes();
+        // Only refresh the read-only result table — the form inputs the
+        // person might still be tabbing through are never touched.
+        const vy = mesViewAnchor.getFullYear(), vm = mesViewAnchor.getMonth();
+        const today2 = new Date();
+        const isCurMonth = (today2.getFullYear()===vy && today2.getMonth()===vm);
+        const daysInVm = new Date(vy, vm+1, 0).getDate();
+        const lastDay = isCurMonth ? today2.getDate() : daysInVm;
+        const curMonthKey = `${vy}-${String(vm+1).padStart(2,'0')}`;
+        const cuotaNow = loadCuota(curMonthKey);
+        const totalsNow = iaMonthTotalsUpTo(vy, vm, lastDay);
+        renderMonthCompareResult(lastYearKey, monthName, y, lastYear, totalsNow, cuotaNow);
       } catch(err){
         console.error('Error al guardar comparativo mensual', err);
         showToast('⚠ Error al guardar: ' + err.message, true);
