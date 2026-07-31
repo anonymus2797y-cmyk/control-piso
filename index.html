@@ -555,7 +555,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 37;
+const APP_VERSION = 38;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -591,6 +591,18 @@ function saveDayStatus(dateStr, statusObj){
     value: JSON.stringify(statusObj),
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   }).catch(err=>{ console.error('Error guardando estado', err); showToast('⚠ No se pudo guardar el estado', true); });
+}
+
+// "Active today" = actually expected to be selling (on the floor, or out to
+// lunch — still counts as a working day). Descanso/Ausente/Día libre don't.
+// No status set at all defaults to "piso" so this never silently zeroes
+// everyone out before anyone's touched the selector.
+function getActiveExecIds(dateStr){
+  const status = loadDayStatus(dateStr);
+  return EXECS.filter(ex => {
+    const s = status[ex.id] || 'piso';
+    return s === 'piso' || s === 'comida';
+  }).map(ex => ex.id);
 }
 
 // ---- ACCESS CONTROL ----
@@ -1154,13 +1166,19 @@ function renderCards(){
   const session = getSession();
   const dateStr = fmtDate(currentDate);
   const dayStatus = loadDayStatus(dateStr);
-  const goalPerExec = Math.round(dailyGoalSum(currentDayCommit));
+  // Redistribute today's fair share only across execs actually working today —
+  // someone on descanso/ausente/día libre isn't expected to carry a slice of it.
+  const activeExecIds = getActiveExecIds(dateStr);
+  const activeCount = Math.max(1, activeExecIds.length);
+  const goalPerExec = Math.round(sumVals(currentDayCommit) / activeCount);
   visibleExecs.forEach(ex=>{
     const d = dayData[ex.id];
     const total = totalFor(d);
-    const pct = cumplimientoPct(d, currentDayCommit);
+    const isActiveToday = activeExecIds.includes(ex.id);
+    const execGoal = isActiveToday ? goalPerExec : 0;
+    const pct = execGoal>0 ? Math.round((total/execGoal)*100) : (total>0 ? 100 : 0);
     const isMvp = total === maxTotal && total > 0;
-    const barColor = pct>=100 ? 'var(--renov)' : pct>=60 ? 'var(--acc)' : 'var(--bad)';
+    const barColor = !isActiveToday ? 'var(--ink-faint)' : pct>=100 ? 'var(--renov)' : pct>=60 ? 'var(--acc)' : 'var(--bad)';
     // Execs can see every teammate's card, but can only EDIT their own —
     // the manager (gerente) can always edit anyone's.
     const readOnly = role === 'exec' && session !== ex.id;
@@ -1170,7 +1188,7 @@ function renderCards(){
     card.className = 'card' + (isMvp ? ' mvp' : '');
 
     const initials = ex.name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
-    const ringColor = ringColorForPct(pct);
+    const ringColor = !isActiveToday ? 'var(--ink-faint)' : ringColorForPct(pct);
     const statusId = dayStatus[ex.id] || 'piso';
     const statusInfo = STATUS_OPTIONS.find(s=>s.id===statusId) || STATUS_OPTIONS[0];
     const streak = computeStreak(ex.id);
@@ -1184,6 +1202,10 @@ function renderCards(){
           ${STATUS_OPTIONS.map(s=>`<option value="${s.id}" ${s.id===statusId?'selected':''}>${s.emoji} ${s.label}</option>`).join('')}
         </select>`
       : `<span style="font-size:11px; font-weight:700;">${statusInfo.emoji} ${statusInfo.label}</span>`;
+
+    const objetivoLabel = isActiveToday
+      ? `${total} / ${execGoal} · ${pct}%`
+      : `${total} ventas · sin meta hoy (${statusInfo.label})`;
 
     card.innerHTML = `
       <div class="topline" id="topline-${ex.id}" style="background:${isMvp?'linear-gradient(90deg,var(--accent),#ff5f7e)':'var(--line)'}"></div>
@@ -1232,7 +1254,7 @@ function renderCards(){
         <div class="box"><label>Mensajes</label><input type="number" min="0" ${dis} data-exec="${ex.id}" data-cat="mensajes" value="${d.mensajes}"></div>
       </div>
       <div class="progress-wrap">
-        <div class="progress-label"><span>🎯 Objetivo de hoy</span><span id="pctlabel-${ex.id}">${total} / ${goalPerExec} · ${pct}%</span></div>
+        <div class="progress-label"><span>🎯 Objetivo de hoy</span><span id="pctlabel-${ex.id}">${objetivoLabel}</span></div>
         <div class="progress-bar"><div class="progress-fill" id="barfill-${ex.id}" style="width:${Math.min(pct,100)}%; background:${barColor};"></div></div>
       </div>
       ${readOnly ? '' : `<button class="save-btn" data-exec="${ex.id}">💾 Guardar avance de ${ex.name.split(' ')[0]}</button>`}
@@ -1248,6 +1270,10 @@ function renderCards(){
         statusObj[execId] = e.target.value;
         saveDayStatus(dateStr, statusObj);
         showToast('Estado actualizado ✓');
+        // Status changes redistribute everyone's fair share, so re-render
+        // the whole set of cards (and the top summary) to stay consistent.
+        renderCards();
+        renderDashboardSummary();
       });
     });
   }
@@ -1277,12 +1303,19 @@ function renderCards(){
 function updateCardProgress(){
   const totals = EXECS.map(ex=>({id:ex.id, total: totalFor(dayData[ex.id])}));
   const maxTotal = Math.max(...totals.map(t=>t.total));
+  const dateStr = fmtDate(currentDate);
+  const activeExecIds = getActiveExecIds(dateStr);
+  const activeCount = Math.max(1, activeExecIds.length);
+  const goalPerExec = Math.round(sumVals(currentDayCommit) / activeCount);
+  const dayStatus = loadDayStatus(dateStr);
   EXECS.forEach(ex=>{
     const d = dayData[ex.id];
     const total = totalFor(d);
-    const pct = cumplimientoPct(d, currentDayCommit);
+    const isActiveToday = activeExecIds.includes(ex.id);
+    const execGoal = isActiveToday ? goalPerExec : 0;
+    const pct = execGoal>0 ? Math.round((total/execGoal)*100) : (total>0 ? 100 : 0);
     const isMvp = total === maxTotal && total > 0;
-    const barColor = pct>=100 ? 'var(--renov)' : pct>=60 ? 'var(--acc)' : 'var(--bad)';
+    const barColor = !isActiveToday ? 'var(--ink-faint)' : pct>=100 ? 'var(--renov)' : pct>=60 ? 'var(--acc)' : 'var(--bad)';
 
     const cardEl = document.getElementById(`card-${ex.id}`);
     if(cardEl) cardEl.classList.toggle('mvp', isMvp);
@@ -1297,7 +1330,10 @@ function updateCardProgress(){
     if(fillEl){ fillEl.style.width = Math.min(pct,100)+'%'; fillEl.style.background = barColor; }
 
     const pctLabelEl = document.getElementById(`pctlabel-${ex.id}`);
-    if(pctLabelEl) pctLabelEl.textContent = `${total} / ${Math.round(dailyGoalSum(currentDayCommit))} · ${pct}%`;
+    if(pctLabelEl){
+      const statusInfo = STATUS_OPTIONS.find(s=>s.id===(dayStatus[ex.id]||'piso')) || STATUS_OPTIONS[0];
+      pctLabelEl.textContent = isActiveToday ? `${total} / ${execGoal} · ${pct}%` : `${total} ventas · sin meta hoy (${statusInfo.label})`;
+    }
   });
 }
 
@@ -1457,20 +1493,31 @@ function renderDashboardSummary(){
     ? `<div style="margin-top:10px; font-size:13px;">🏆 <b>MVP del día:</b> 🥇 ${mvp.ex.name} <span style="color:var(--ink-faint);">(${mvp.total} ventas)</span></div>`
     : '';
 
-  const results = EXECS.map((ex, idx)=>({ex, idx, pct: cumplimientoPct(dayData[ex.id], commit)}));
+  const dateStr = fmtDate(currentDate);
+  const activeExecIds = getActiveExecIds(dateStr);
+  const activeExecsList = EXECS.filter(ex=>activeExecIds.includes(ex.id));
+  const goalPerExecToday = Math.round(totalCommit / Math.max(1, activeExecsList.length));
+
+  const results = activeExecsList.map((ex)=>({
+    ex,
+    pct: goalPerExecToday>0 ? Math.round((totalFor(dayData[ex.id])/goalPerExecToday)*100) : 0
+  }));
   results.sort((a,b)=> a.pct-b.pct);
   const risky = results[0];
   let riesgoHtml = '';
   if(risky && risky.pct < 100 && totalCommit>0){
     const targets = {};
-    CATS.forEach(c=> targets[c.id] = splitEvenlySigned(commit[c.id]||0, EXECS.length));
+    CATS.forEach(c=> targets[c.id] = splitEvenlySigned(commit[c.id]||0, activeExecsList.length||1));
+    const riskyIdx = activeExecsList.findIndex(ex=>ex.id===risky.ex.id);
     const missing = CATS.map(c=>{
-      const target = targets[c.id][risky.idx];
+      const target = targets[c.id][riskyIdx];
       const val = dayData[risky.ex.id][c.id]||0;
       const gap = target - val;
       return gap>0 ? `${gap} ${c.label}` : null;
     }).filter(Boolean);
     riesgoHtml = `<div style="margin-top:8px; font-size:13px; color:var(--bad);">⚠️ <b>Riesgo:</b> ${risky.ex.name}${missing.length ? ` — le faltan: ${missing.join(', ')}` : ' está atrás en general'}</div>`;
+  } else if(activeExecsList.length===0){
+    riesgoHtml = `<div style="margin-top:8px; font-size:13px; color:var(--ink-faint);">😴 Nadie está marcado en piso hoy.</div>`;
   }
 
   const alert = getDashboardAlert(totals, commit);
@@ -1853,61 +1900,6 @@ function pct1(num, den){ return den>0 ? Math.round((num/den)*1000)/10 : 0; }
 // A single editable total per category for "all of last year" (or however much
 // of it you want to enter) — much simpler than month-by-month, and directly
 // overrides the monthly-sum calculation below when present.
-function loadAnnualOverride(year){
-  const raw = storageGet(`cp_annual_override_${year}`);
-  if(raw){ try{ return JSON.parse(raw); }catch(e){} }
-  return null;
-}
-function saveAnnualOverride(year, values){
-  return storageSet(`cp_annual_override_${year}`, JSON.stringify(values));
-}
-
-// Single source of truth for "this year to date vs same period last year" —
-// used by BOTH the Mes tab's Acumulado section AND the IA assistant, so they
-// can never show different numbers again.
-function getYearComparisonData(){
-  const today = new Date();
-  const year = today.getFullYear();
-  const lastYear = year - 1;
-
-  const curTotals = {postpago:0, renov:0, prepago:0, seguros:0, acc:0};
-  const curCuota = {postpago:0, renov:0, prepago:0, seguros:0, acc:0};
-  for(let mIdx=0; mIdx<=today.getMonth(); mIdx++){
-    const daysInThisMonth = new Date(year, mIdx+1, 0).getDate();
-    const lastDay = (mIdx===today.getMonth()) ? today.getDate() : daysInThisMonth;
-    const monthTotals = iaMonthTotalsUpTo(year, mIdx, lastDay);
-    const cuota = loadCuota(`${year}-${String(mIdx+1).padStart(2,'0')}`);
-    CATS.forEach(c=>{ curTotals[c.id] += monthTotals[c.id]||0; curCuota[c.id] += cuota[c.id]||0; });
-  }
-
-  const override = loadAnnualOverride(lastYear);
-  let prevTotals = {postpago:0, renov:0, prepago:0, seguros:0, acc:0};
-  let prevCuota = {postpago:0, renov:0, prepago:0, seguros:0, acc:0};
-  let monthsLoaded = 0;
-  let usingOverride = false;
-  if(override){
-    usingOverride = true;
-    CATS.forEach(c=>{
-      const m = override[c.id] || {cuota:0, venta:0};
-      prevCuota[c.id] = m.cuota||0;
-      prevTotals[c.id] = m.venta||0;
-    });
-  } else {
-    for(let mIdx=0; mIdx<=today.getMonth(); mIdx++){
-      const manual = loadHistoricalMonth(`${lastYear}-${String(mIdx+1).padStart(2,'0')}`);
-      if(manual){
-        monthsLoaded++;
-        CATS.forEach(c=>{
-          const m = manual[c.id] || {cuota:0, venta:0};
-          prevTotals[c.id] += m.venta||0;
-          prevCuota[c.id] += m.cuota||0;
-        });
-      }
-    }
-  }
-
-  return {today, year, lastYear, curTotals, curCuota, prevTotals, prevCuota, monthsLoaded, usingOverride};
-}
 
 
 // ---- CIERRE DEL DÍA (day close: commitment vs actual results) ----
@@ -2256,8 +2248,7 @@ const IA_ACTIONS = [
   {emoji:'🎯', label:'¿Qué falta para el 80% semanal?', key:'meta80'},
   {emoji:'🏁', label:'¿Cómo cerrar el mes?', key:'cerrar_mes'},
   {emoji:'📱', label:'Generar mensaje para WhatsApp', key:'whatsapp'},
-  {emoji:'📈', label:'Pronosticar cierre de mes', key:'pronostico'},
-  {emoji:'📆', label:'Comparar con el año pasado', key:'comparativo'}
+  {emoji:'📈', label:'Pronosticar cierre de mes', key:'pronostico'}
 ];
 
 function renderIaQuickCards(){
@@ -2489,30 +2480,6 @@ function iaQuienVaMejor(){
   return `🏆 <b>${best.ex.name}</b> va mejor hoy (${best.pct}% de su meta diaria). ¡Reconócelo con el equipo!`;
 }
 
-function iaComparativoAnual(){
-  const {today, year, lastYear, curTotals, prevTotals, curCuota, prevCuota, monthsLoaded, usingOverride} = getYearComparisonData();
-  const thisTotal = sumVals(curTotals);
-  const lastYearTotal = sumVals(prevTotals);
-  const monthName = today.toLocaleDateString('es-MX', {month:'long'});
-
-  if(lastYearTotal === 0){
-    return `📆 Aún no tengo datos guardados de <b>${lastYear}</b> (enero a ${monthName}). En cuanto los captures (en Mes → Acumulado del año, o mes por mes), esta comparación va a funcionar sola, sin que hagas nada más.`;
-  }
-
-  const diff = thisTotal - lastYearTotal;
-  const pctChange = lastYearTotal>0 ? Math.round((diff/lastYearTotal)*1000)/10 : 0;
-  const arrow = diff>=0 ? '📈' : '📉';
-  const lines = CATS.map(c=>{
-    const cur = curTotals[c.id]||0;
-    const prev = prevTotals[c.id]||0;
-    const d = cur-prev;
-    const p = prev>0 ? Math.round((d/prev)*1000)/10 : (cur>0 ? 100 : 0);
-    return `${c.label}: ${cur} vs ${prev} (${d>=0?'+':''}${d}, ${p>=0?'+':''}${p}%)`;
-  });
-  const coverage = usingOverride ? '' : (monthsLoaded < (today.getMonth()+1) ? ` (con ${monthsLoaded} de ${today.getMonth()+1} meses de ${lastYear} cargados)` : '');
-  return `${arrow} <b>Enero–${monthName} ${year}</b>: ${thisTotal} &nbsp;vs&nbsp; <b>enero–${monthName} ${lastYear}</b>: ${lastYearTotal}${coverage} → ${diff>=0?'+':''}${diff} (${pctChange>=0?'+':''}${pctChange}%)<br>${lines.join('<br>')}`;
-}
-
 function iaComoCerrarMes(){
   const today = new Date();
   const cuota = loadCuota(monthKeyFromDate(today));
@@ -2639,7 +2606,6 @@ function runIaAction(key, labelText){
       case 'cerrar_mes': response = iaComoCerrarMes(); break;
       case 'whatsapp': response = iaGenerarMensajeWhatsApp(); break;
       case 'pronostico': response = iaPronosticoMes(); break;
-      case 'comparativo': response = iaComparativoAnual(); break;
       case 'saludo': response = iaPick([
         '👋 ¡Hola, Carlos! ¿Qué quieres revisar: el día, la semana o el mes?',
         '¡Hola! Aquí ando, listo para lo que necesites de la tienda.',
@@ -2648,7 +2614,7 @@ function runIaAction(key, labelText){
       case 'gracias': response = iaPick(['¡Con gusto! 🙌', 'Para eso estoy 👍', 'De nada, aquí sigo si necesitas algo más.']); break;
       case 'despedida': response = iaPick(['¡Nos vemos! Aquí estaré cuando me necesites 👋', 'Va, cualquier cosa aquí ando.']); break;
       case 'como_estas': response = 'Muy bien, listo para ayudarte con la tienda 💪 ¿Qué revisamos?'; break;
-      case 'ayuda': response = 'Puedo platicarte sobre:<br>• Cómo vamos (hoy/semana/mes)<br>• Qué está atrasado<br>• Quién necesita apoyo (o "quién es el menos productivo")<br>• Quién va mejor<br>• Quién convierte mejor (cotizaciones → cierres)<br>• Quién tiene seguimientos pendientes<br>• Qué falta para el 80% semanal<br>• Cómo cerrar el mes<br>• Pronóstico de cierre<br>• Comparativa vs el año pasado<br>• Generar mensaje para WhatsApp<br>• También puedes preguntarme por un ejecutivo (ej. "cómo va Alma") o un indicador (ej. "cómo va Postpago")'; break;
+      case 'ayuda': response = 'Puedo platicarte sobre:<br>• Cómo vamos (hoy/semana/mes)<br>• Qué está atrasado<br>• Quién necesita apoyo (o "quién es el menos productivo")<br>• Quién va mejor<br>• Quién convierte mejor (cotizaciones → cierres)<br>• Quién tiene seguimientos pendientes<br>• Qué falta para el 80% semanal<br>• Cómo cerrar el mes<br>• Pronóstico de cierre<br>• Generar mensaje para WhatsApp<br>• También puedes preguntarme por un ejecutivo (ej. "cómo va Alma") o un indicador (ej. "cómo va Postpago")'; break;
       default: response = 'No entendí bien esa pregunta 🤔. Escribe "ayuda" para ver de qué te puedo hablar, o toca una tarjeta de arriba.';
     }
   }
@@ -2662,7 +2628,6 @@ function iaMatchFreeText(text){
   if(/^(adiós|adios|bye|hasta luego|nos vemos)\b/.test(t)) return 'despedida';
   if(t.includes('cómo estás') || t.includes('como estas')) return 'como_estas';
   if(t.includes('ayuda') && (t.includes('qué puedes')||t.includes('que puedes')||t.includes('opciones')||t.includes('qué haces')||t.includes('que haces'))) return 'ayuda';
-  if(t.includes('año pasado') || t.includes('comparar') || t.includes('comparativ')) return 'comparativo';
 
   const execMatch = EXECS.find(ex=> t.includes(ex.name.toLowerCase().split(' ')[0]));
   if(execMatch) return 'exec_'+execMatch.id;
