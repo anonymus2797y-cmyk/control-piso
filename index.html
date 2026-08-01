@@ -652,7 +652,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 51;
+const APP_VERSION = 53;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -2160,6 +2160,8 @@ function reopenDay(dateStr){
 
 let invBrandFilter = 'all';
 let invPhoneBrandFilter = 'all';
+let invPhoneExpanded = new Set(); // which model cards are open, in the internal Teléfonos list
+let bajioExpanded = new Set(); // same idea, in the Catálogo Bajío list
 const INV_STORE_MATCH = 'PORTAL LAGOS DE MORENO'; // matches the org name column regardless of store-code prefix
 
 function guessAccessoryBrand(desc){
@@ -2211,6 +2213,30 @@ function extractColor(desc){
     if(re.test(d)) return label;
   }
   return 'N/D';
+}
+
+// Maps a detected color name to an actual swatch color for the little dot
+// shown next to it — best effort, matched by keyword.
+function colorToSwatch(colorName){
+  const c = (colorName||'').toUpperCase();
+  if(c.includes('NEGRO')||c.includes('BLACK')||c.includes('OBSIDIAN')) return '#2b2b2e';
+  if(c.includes('BLANCO')||c.includes('WHITE')||c.includes('PORCELAIN')) return '#f2f2f2';
+  if(c.includes('NARANJA')||c.includes('ORANGE')||c.includes('DESERT GOLD')) return '#ff8c42';
+  if(c.includes('AZUL')||c.includes('BLUE')||c.includes('ÍNDIGO')||c.includes('INDIGO')) return '#3b6fd6';
+  if(c.includes('ROJO')||c.includes('RED')) return '#e5484d';
+  if(c.includes('VERDE')||c.includes('GREEN')) return '#3fb27f';
+  if(c.includes('GRIS')||c.includes('GRAY')||c.includes('GREY')) return '#9a9a9a';
+  if(c.includes('PLATA')||c.includes('SILVER')||c.includes('MOONSTONE')) return '#c7c9cc';
+  if(c.includes('DORADO')||c.includes('GOLD')) return '#d4af37';
+  if(c.includes('MORADO')||c.includes('PURPLE')||c.includes('PÚRPURA')||c.includes('PURPURA')||c.includes('VIOLETA')||c.includes('VIOLET')) return '#8b5cf6';
+  if(c.includes('ROSA')||c.includes('PINK')) return '#f472b6';
+  if(c.includes('AMARILLO')||c.includes('YELLOW')) return '#f5c518';
+  if(c.includes('TITANIO')||c.includes('TITANIUM')) return '#8a8f98';
+  if(c.includes('COBALTO')||c.includes('COBALT')) return '#2f5fa8';
+  if(c.includes('LAVANDA')) return '#c8b6e2';
+  if(c.includes('CAFE')||c.includes('BROWN')) return '#8b5e34';
+  if(c.includes('CYAN')) return '#22c9d4';
+  return '#8a8a8a'; // N/D or unrecognized
 }
 
 // The full-region phone catalog (every store, every model+color) — a
@@ -2417,30 +2443,45 @@ function renderBajioCatalog(){
     const byColor = {};
     items.forEach(r=>{ byColor[r.c] = (byColor[r.c]||0) + r.q; });
     const colorPills = Object.entries(byColor).sort((a,b)=>b[1]-a[1])
-      .map(([c,q])=>`<span style="display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:4px 10px; border-radius:14px; background:var(--bg-card); border:1px solid var(--line); margin:3px 4px 3px 0;">${c} · ${q}</span>`).join('');
+      .map(([c,q])=>`<span style="display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; padding:4px 10px; border-radius:14px; background:var(--bg-card); border:1px solid var(--line); margin:3px 4px 3px 0;"><span style="width:9px; height:9px; border-radius:50%; background:${colorToSwatch(c)}; border:1px solid rgba(255,255,255,.25); flex-shrink:0;"></span>${c} · ${q}</span>`).join('');
     const detailRows = items.sort((a,b)=> b.q-a.q).slice(0,50).map(r=>`
       <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-top:1px solid var(--line);">
-        <div>
-          <div style="font-weight:700; font-size:12.5px;">${r.s.replace(/^\S+\s-\s/,'')}</div>
-          <div style="font-size:11px; color:var(--ink-faint);">${r.c}</div>
+        <div style="display:flex; align-items:flex-start; gap:8px;">
+          <span style="width:10px; height:10px; border-radius:50%; background:${colorToSwatch(r.c)}; border:1px solid rgba(255,255,255,.25); margin-top:3px; flex-shrink:0;"></span>
+          <div>
+            <div style="font-weight:700; font-size:12.5px;">${r.s.replace(/^\S+\s-\s/,'')}</div>
+            <div style="font-size:11px; color:var(--ink-faint);">${r.c}</div>
+          </div>
         </div>
         <div style="font-weight:800; font-size:14px; color:var(--renov);">${r.q}</div>
       </div>
     `).join('');
+    const isOpen = bajioExpanded.has(model);
     return `
       <div style="padding:12px 14px; background:var(--bg-panel); border:1px solid var(--line); border-radius:12px; margin-bottom:10px;">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+        <button type="button" class="inv-bajio-toggle" data-key="${model}" style="all:unset; display:flex; justify-content:space-between; align-items:flex-start; gap:8px; width:100%; cursor:pointer;">
           <div style="font-weight:800; font-size:13.5px; flex:1;">${model}</div>
-          <div style="text-align:right; flex-shrink:0;">
-            <div style="font-size:17px; font-weight:800;">${modelTotal}</div>
-            <div style="font-size:9.5px; color:var(--ink-faint); font-weight:700;">UNIDADES</div>
+          <div style="text-align:right; flex-shrink:0; display:flex; align-items:center; gap:6px;">
+            <div>
+              <div style="font-size:17px; font-weight:800;">${modelTotal}</div>
+              <div style="font-size:9.5px; color:var(--ink-faint); font-weight:700;">UNIDADES</div>
+            </div>
+            <span style="font-size:12px; color:var(--ink-faint);">${isOpen ? '▲' : '▼'}</span>
           </div>
-        </div>
+        </button>
         <div style="margin-top:6px;">${colorPills}</div>
-        <div>${detailRows}</div>
+        ${isOpen ? `<div>${detailRows}</div>` : ''}
       </div>
     `;
   }).join('') : `<div class="insight-bar">Sin resultados para este filtro.</div>`;
+
+  listEl.querySelectorAll('.inv-bajio-toggle').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const key = btn.dataset.key;
+      if(bajioExpanded.has(key)) bajioExpanded.delete(key); else bajioExpanded.add(key);
+      renderBajioCatalog();
+    });
+  });
 }
 
 function renderInventario(){
@@ -2476,8 +2517,8 @@ function renderInventario(){
     return `
       <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; padding:10px 0; border-top:1px solid var(--line);">
         <div style="min-width:0;">
-          <div style="font-weight:700; font-size:12.5px;">${p.color || p.name}${p.sku?` <span style="font-size:10px; color:var(--ink-faint); font-weight:700;">SKU: ${p.sku}</span>`:''}</div>
-          <div style="font-size:11px; color:${low?'var(--bad)':'var(--ink-faint)'}; font-weight:${low?'800':'600'};">${p.stock} en stock${low?' ⚠️ bajo':''}</div>
+          <div style="font-weight:700; font-size:12.5px; display:flex; align-items:center; gap:6px;"><span style="width:9px; height:9px; border-radius:50%; background:${colorToSwatch(p.color)}; border:1px solid rgba(255,255,255,.25); flex-shrink:0;"></span>${p.color || p.name}${p.sku?` <span style="font-size:10px; color:var(--ink-faint); font-weight:700;">SKU: ${p.sku}</span>`:''}</div>
+          <div style="font-size:11px; color:${low?'var(--bad)':'var(--ink-faint)'}; font-weight:${low?'800':'600'}; margin-left:15px;">${p.stock} en stock${low?' ⚠️ bajo':''}</div>
         </div>
         <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
           ${sellControls}
@@ -2493,22 +2534,26 @@ function renderInventario(){
   // Groups this store's phones by model — same visual pattern as the
   // region-wide Catálogo Bajío — with the sell controls for each color
   // nested underneath, since selling still has to target one exact SKU.
-  function phoneModelCardHtml(modelo, variants){
+  function phoneModelCardHtml(modelo, variants, key){
     const total = variants.reduce((s,p)=> s+p.stock, 0);
     const colorPills = variants.map(p=>
-      `<span style="display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:4px 10px; border-radius:14px; background:var(--bg-card); border:1px solid var(--line); margin:3px 4px 3px 0;">${p.color||'—'} · ${p.stock}</span>`
+      `<span style="display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; padding:4px 10px; border-radius:14px; background:var(--bg-card); border:1px solid var(--line); margin:3px 4px 3px 0;"><span style="width:9px; height:9px; border-radius:50%; background:${colorToSwatch(p.color)}; border:1px solid rgba(255,255,255,.25); flex-shrink:0;"></span>${p.color||'—'} · ${p.stock}</span>`
     ).join('');
+    const isOpen = invPhoneExpanded.has(key);
     return `
       <div style="padding:12px 14px; background:var(--bg-panel); border:1px solid var(--line); border-radius:12px; margin-bottom:10px;">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+        <button type="button" class="inv-phone-toggle" data-key="${key}" style="all:unset; display:flex; justify-content:space-between; align-items:flex-start; gap:8px; width:100%; cursor:pointer;">
           <div style="font-weight:800; font-size:13.5px; flex:1;">${modelo}</div>
-          <div style="text-align:right; flex-shrink:0;">
-            <div style="font-size:17px; font-weight:800;">${total}</div>
-            <div style="font-size:9.5px; color:var(--ink-faint); font-weight:700;">EN STOCK</div>
+          <div style="text-align:right; flex-shrink:0; display:flex; align-items:center; gap:6px;">
+            <div>
+              <div style="font-size:17px; font-weight:800;">${total}</div>
+              <div style="font-size:9.5px; color:var(--ink-faint); font-weight:700;">EN STOCK</div>
+            </div>
+            <span style="font-size:12px; color:var(--ink-faint);">${isOpen ? '▲' : '▼'}</span>
           </div>
-        </div>
+        </button>
         <div style="margin-top:6px;">${colorPills}</div>
-        <div>${variants.map(phoneVariantRowHtml).join('')}</div>
+        ${isOpen ? `<div>${variants.map(phoneVariantRowHtml).join('')}</div>` : ''}
       </div>
     `;
   }
@@ -2586,7 +2631,14 @@ function renderInventario(){
         if(!byModel[key]) byModel[key] = [];
         byModel[key].push(p);
       });
-      phonesEl.innerHTML = Object.keys(byModel).sort().map(modelo=> phoneModelCardHtml(modelo, byModel[modelo])).join('');
+      phonesEl.innerHTML = Object.keys(byModel).sort().map(modelo=> phoneModelCardHtml(modelo, byModel[modelo], modelo)).join('');
+      phonesEl.querySelectorAll('.inv-phone-toggle').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          const key = btn.dataset.key;
+          if(invPhoneExpanded.has(key)) invPhoneExpanded.delete(key); else invPhoneExpanded.add(key);
+          renderInventario();
+        });
+      });
     }
   }
 
