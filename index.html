@@ -613,6 +613,19 @@
 
     <div class="section-title">🕓 Historial reciente</div>
     <div id="invHistory"></div>
+
+    <div class="section-title">📡 Catálogo Bajío — Teléfonos</div>
+    <div id="invBajioMeta" style="font-size:11.5px; color:var(--ink-faint); margin-bottom:10px;"></div>
+    <div class="goals-form" style="margin-bottom:10px;">
+      <div class="row" style="border-bottom:none;">
+        <input type="text" id="inv-bajio-search" placeholder="Buscar modelo, marca o color..." style="flex:1;">
+      </div>
+    </div>
+    <div style="display:flex; gap:8px; margin-bottom:10px;">
+      <select id="inv-bajio-store" style="flex:1;"></select>
+    </div>
+    <div id="invBajioSummary" style="font-size:12px; color:var(--ink-dim); margin-bottom:10px; font-weight:700;"></div>
+    <div id="invBajioList"></div>
   </section>
 
 </main>
@@ -638,7 +651,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 49;
+const APP_VERSION = 50;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -2154,6 +2167,45 @@ function guessAccessoryBrand(desc){
   return '';
 }
 
+// Best-effort color extraction from freeform AT&T inventory descriptions.
+// Multi-word phrases are checked first so "Naranja Cósmico" wins over a bare
+// "Naranja" match; anything unmatched falls back to "N/D" rather than guessing.
+const COLOR_PHRASES = [
+  ['NARANJA COSMICO','Naranja Cósmico'], ['AZUL PROFUNDO','Azul Profundo'], ['DESERT GOLD','Desert Gold'],
+  ['VELVELT BLACK','Velvet Black'], ['SKY BLUE','Sky Blue'], ['DARK BLUE','Dark Blue'],
+  ['COBALT VIOLET','Cobalt Violet'], ['LIGHT VIOLET','Light Violet'], ['PURPURA OSCURO','Púrpura Oscuro'],
+  ['TITANIUM PURPLE','Titanium Purple'], ['OCEAN CYAN','Ocean Cyan'], ['TPURPLE','Titanium Purple'],
+  ['JCYAN','Cyan'],
+  ['NEGRO','Negro'], ['BLACK','Negro'], ['BLANCO','Blanco'], ['WHITE','Blanco'],
+  ['AZUL','Azul'], ['BLUE','Azul'], ['ROJO','Rojo'], ['RED','Rojo'],
+  ['VERDE','Verde'], ['GREEN','Verde'], ['GRIS','Gris'], ['GRAY','Gris'], ['GREY','Gris'],
+  ['PLATA','Plata'], ['SILVER','Plata'], ['DORADO','Dorado'], ['GOLD','Dorado'],
+  ['NARANJA','Naranja'], ['ORANGE','Naranja'], ['MORADO','Morado'], ['PURPLE','Morado'], ['PURPURA','Púrpura'],
+  ['ROSA','Rosa'], ['PINK','Rosa'], ['AMARILLO','Amarillo'], ['YELLOW','Amarillo'], ['INDIGO','Índigo'],
+  ['TITANIO','Titanio'], ['TITANIUM','Titanio'], ['COBALTO','Cobalto'], ['VIOLETA','Violeta'], ['VIOLET','Violeta'],
+  ['LAVANDA','Lavanda'], ['OLIVA','Oliva'], ['OLIVO','Oliva'], ['CAFE','Café'], ['BROWN','Café'],
+  ['ULTRAMARINO','Ultramarino'], ['CYAN','Cyan'], ['MOONSTONE','Moonstone'], ['OBSIDIAN','Obsidian'], ['PORCELAIN','Porcelain'],
+];
+function extractColor(desc){
+  const d = (desc||'').toUpperCase();
+  for(const [key, label] of COLOR_PHRASES){
+    const re = new RegExp('\\b'+key.replace(/ /g,'\\s+')+'\\b');
+    if(re.test(d)) return label;
+  }
+  return 'N/D';
+}
+
+// The full-region phone catalog (every store, every model+color) — a
+// read-only reference, separate from this store's own sellable inventory.
+function loadBajioCatalog(){
+  const raw = storageGet('cp_bajio_catalog');
+  if(raw){ try{ return JSON.parse(raw); }catch(e){} }
+  return {updatedAt:null, rows:[]};
+}
+function saveBajioCatalog(data){
+  return storageSet('cp_bajio_catalog', JSON.stringify(data));
+}
+
 function importInventoryFromExcel(file){
   const statusEl = document.getElementById('inv-import-status');
   statusEl.textContent = 'Leyendo archivo… esto puede tardar un momento con reportes grandes.';
@@ -2181,6 +2233,7 @@ function importInventoryFromExcel(file){
       const colOrg = header.findIndex(h=>h.includes('nombre de la organiza'));
       const colSku = header.findIndex(h=>h.includes('codigo'));
       const colDesc = header.findIndex(h=>h.includes('descripcion'));
+      const colModelo = header.findIndex(h=>h.includes('modelo'));
       const colQty = header.findIndex(h=>h.includes('cantidad'));
       const colTipo = header.findIndex(h=>h.includes('tipo'));
 
@@ -2191,13 +2244,29 @@ function importInventoryFromExcel(file){
 
       const inv = loadInventory();
       let updatedPhones=0, newPhones=0, updatedAccs=0, newAccs=0, skippedOther=0;
+      const bajioAgg = {}; // "modelo|color|org" -> qty, across EVERY store in the file
 
       for(let i=headerIdx+1; i<rows.length; i++){
         const r = rows[i];
         if(!r || !r[colOrg]) continue;
-        if(!String(r[colOrg]).toUpperCase().includes(INV_STORE_MATCH)) continue;
 
         const tipo = (r[colTipo]||'').toString().toUpperCase();
+
+        // Region-wide phone catalog: every store, not just this one.
+        if(tipo==='TELEFONO' && colModelo>=0){
+          const modelo = (r[colModelo]||'').toString().trim();
+          const desc = (r[colDesc]||'').toString().trim();
+          const org = String(r[colOrg]).trim();
+          const qty = Number(r[colQty])||0;
+          if(modelo){
+            const color = extractColor(desc);
+            const key = modelo+'|'+color+'|'+org;
+            bajioAgg[key] = (bajioAgg[key]||0) + qty;
+          }
+        }
+
+        if(!String(r[colOrg]).toUpperCase().includes(INV_STORE_MATCH)) continue;
+
         let category = null;
         if(tipo==='TELEFONO') category = 'telefono';
         else if(tipo==='ACCESORIO') category = 'accesorio';
@@ -2222,6 +2291,13 @@ function importInventoryFromExcel(file){
         }
       }
 
+      const bajioRows = Object.entries(bajioAgg).map(([key,qty])=>{
+        const [m,c,s] = key.split('|');
+        return {m, c, s, q:qty};
+      });
+      saveBajioCatalog({updatedAt: Date.now(), rows: bajioRows});
+      populateBajioStoreFilter();
+
       const ok = saveInventory(inv);
       const totalFound = updatedPhones+newPhones+updatedAccs+newAccs;
       if(totalFound===0){
@@ -2229,7 +2305,7 @@ function importInventoryFromExcel(file){
         return;
       }
       statusEl.textContent = ok
-        ? `✅ Importado: ${newPhones} teléfonos nuevos, ${updatedPhones} actualizados · ${newAccs} accesorios nuevos, ${updatedAccs} actualizados.`
+        ? `✅ Importado: ${newPhones} teléfonos nuevos, ${updatedPhones} actualizados · ${newAccs} accesorios nuevos, ${updatedAccs} actualizados. Catálogo Bajío: ${bajioRows.length} variantes de ${new Set(bajioRows.map(r=>r.s)).size} sucursales.`
         : '⚠ Se procesó pero no se pudo guardar — revisa tu conexión.';
       showToast(ok ? 'Inventario actualizado ✓' : 'No se pudo guardar', !ok);
       renderInventario();
@@ -2258,6 +2334,84 @@ function decontarAccesorio(productId){
 
   showToast(ok ? `Descontado: ${product.name} ✓` : '⚠ Guardado local, revisa tu conexión', !ok);
   renderInventario();
+}
+
+function populateBajioStoreFilter(){
+  const sel = document.getElementById('inv-bajio-store');
+  if(!sel) return;
+  const catalog = loadBajioCatalog();
+  const stores = Array.from(new Set(catalog.rows.map(r=>r.s))).sort();
+  const myStoreFull = stores.find(s=> s.toUpperCase().includes(INV_STORE_MATCH));
+  const prevValue = sel.value;
+  sel.innerHTML = `<option value="all">Todas las sucursales</option>` +
+    stores.map(s=>`<option value="${s}">${s}</option>`).join('');
+  if(stores.includes(prevValue)) sel.value = prevValue;
+  else if(myStoreFull) sel.value = myStoreFull;
+}
+
+function renderBajioCatalog(){
+  const catalog = loadBajioCatalog();
+  const metaEl = document.getElementById('invBajioMeta');
+  const listEl = document.getElementById('invBajioList');
+  const summaryEl = document.getElementById('invBajioSummary');
+  if(!metaEl || !listEl || !summaryEl) return;
+
+  if(!catalog.updatedAt || catalog.rows.length===0){
+    metaEl.textContent = 'Aún no has importado ningún reporte de existencias — usa "Importar reporte de existencias" arriba.';
+    listEl.innerHTML = '';
+    summaryEl.textContent = '';
+    return;
+  }
+
+  const updatedDate = new Date(catalog.updatedAt).toLocaleDateString('es-MX', {day:'numeric', month:'short', year:'numeric'});
+  metaEl.textContent = `BAJÍO · actualizado ${updatedDate} · ${catalog.rows.length} variantes`;
+
+  const storeSel = document.getElementById('inv-bajio-store');
+  const storeFilter = storeSel ? storeSel.value : 'all';
+  const searchEl = document.getElementById('inv-bajio-search');
+  const searchTerm = (searchEl ? searchEl.value : '').toLowerCase();
+
+  let rows = catalog.rows;
+  if(storeFilter && storeFilter!=='all') rows = rows.filter(r=> r.s===storeFilter);
+  if(searchTerm) rows = rows.filter(r=> r.m.toLowerCase().includes(searchTerm) || r.c.toLowerCase().includes(searchTerm) || r.s.toLowerCase().includes(searchTerm));
+
+  const byModel = {};
+  rows.forEach(r=>{ if(!byModel[r.m]) byModel[r.m]=[]; byModel[r.m].push(r); });
+  const models = Object.keys(byModel).sort();
+  const totalUnidades = rows.reduce((s,r)=>s+r.q,0);
+  const storeLabel = (!storeFilter || storeFilter==='all') ? 'todas las sucursales' : storeFilter.replace(/^\S+\s-\s/,'');
+  summaryEl.textContent = `${models.length} modelos · ${totalUnidades} unidades en ${storeLabel}`;
+
+  listEl.innerHTML = models.length ? models.map(model=>{
+    const items = byModel[model];
+    const modelTotal = items.reduce((s,r)=>s+r.q,0);
+    const byColor = {};
+    items.forEach(r=>{ byColor[r.c] = (byColor[r.c]||0) + r.q; });
+    const colorPills = Object.entries(byColor).sort((a,b)=>b[1]-a[1])
+      .map(([c,q])=>`<span style="display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:4px 10px; border-radius:14px; background:var(--bg-card); border:1px solid var(--line); margin:3px 4px 3px 0;">${c} · ${q}</span>`).join('');
+    const detailRows = items.sort((a,b)=> b.q-a.q).slice(0,50).map(r=>`
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-top:1px solid var(--line);">
+        <div>
+          <div style="font-weight:700; font-size:12.5px;">${r.s.replace(/^\S+\s-\s/,'')}</div>
+          <div style="font-size:11px; color:var(--ink-faint);">${r.c}</div>
+        </div>
+        <div style="font-weight:800; font-size:14px; color:var(--renov);">${r.q}</div>
+      </div>
+    `).join('');
+    return `
+      <div style="padding:12px 14px; background:var(--bg-panel); border:1px solid var(--line); border-radius:12px; margin-bottom:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+          <div style="font-weight:800; font-size:13.5px; flex:1;">${model}</div>
+          <div style="text-align:right; flex-shrink:0;">
+            <div style="font-size:17px; font-weight:800;">${modelTotal}</div>
+            <div style="font-size:9.5px; color:var(--ink-faint); font-weight:700;">UNIDADES</div>
+          </div>
+        </div>
+        <div style="margin-top:6px;">${colorPills}</div>
+        <div>${detailRows}</div>
+      </div>
+    `;
+  }).join('') : `<div class="insight-bar">Sin resultados para este filtro.</div>`;
 }
 
 function renderInventario(){
@@ -2405,6 +2559,9 @@ function renderInventario(){
       });
     });
   }
+
+  if(!document.getElementById('inv-bajio-store').options.length) populateBajioStoreFilter();
+  renderBajioCatalog();
 }
 
 function renderCierre(){
@@ -3322,6 +3479,8 @@ document.getElementById('inv-import-file').addEventListener('change', (e)=>{
   if(file) importInventoryFromExcel(file);
   e.target.value = ''; // allow re-selecting the same file later
 });
+document.getElementById('inv-bajio-search').addEventListener('input', ()=> renderBajioCatalog());
+document.getElementById('inv-bajio-store').addEventListener('change', ()=> renderBajioCatalog());
 
 function iaGenerarMensajeWhatsApp(){
   const dayVals = loadDay(fmtDate(new Date()));
