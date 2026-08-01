@@ -418,6 +418,7 @@
   <button class="tab-btn" data-view="cierre">Cierre</button>
   <button class="tab-btn" data-view="ia">IA</button>
   <button class="tab-btn" data-view="metas">Metas</button>
+  <button class="tab-btn" data-view="inventario">Inventario</button>
 </nav>
 
 <main>
@@ -565,6 +566,46 @@
     </div>
   </section>
 
+  <!-- INVENTARIO -->
+  <section class="view" id="view-inventario">
+    <div class="section-title" style="margin-top:0;">📦 Inventario — PORTAL LAGOS DE MORENO</div>
+
+    <div class="goals-form" id="invAddForm" style="margin-bottom:14px;">
+      <div class="row" style="border-bottom:none; padding-bottom:6px;">
+        <label style="font-weight:800; font-size:12.5px;">+ Agregar producto</label>
+      </div>
+      <div class="row">
+        <label>Tipo</label>
+        <select id="inv-new-type" style="flex:1;">
+          <option value="telefono">📱 Teléfono</option>
+          <option value="accesorio">🎧 Accesorio</option>
+        </select>
+      </div>
+      <div class="row"><label>Nombre</label><input type="text" id="inv-new-name" placeholder="ej. Cargador PD25W USBC" style="flex:1;"></div>
+      <div class="row" id="inv-new-sku-row"><label>SKU</label><input type="text" id="inv-new-sku" placeholder="opcional" style="flex:1;"></div>
+      <div class="row" id="inv-new-brand-row"><label>Marca</label><input type="text" id="inv-new-brand" placeholder="ej. Quikcell, Speck, Apple" style="flex:1;"></div>
+      <div class="row"><label>Stock inicial</label><input type="number" min="0" id="inv-new-stock" value="0" style="width:70px;"></div>
+      <button type="button" class="save-btn" id="invAddBtn" style="margin-top:6px;">➕ Agregar al inventario</button>
+    </div>
+
+    <div class="goals-form" style="margin-bottom:14px;">
+      <div class="row" style="border-bottom:none;">
+        <label style="font-weight:800; font-size:12.5px;">🔍 Buscar por SKU o nombre</label>
+        <input type="text" id="inv-search" placeholder="ej. funda, AC-1023..." style="flex:1;">
+      </div>
+    </div>
+
+    <div class="section-title">📱 Teléfonos</div>
+    <div id="invPhones"></div>
+
+    <div class="section-title">🎧 Accesorios</div>
+    <div id="invBrandFilters" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;"></div>
+    <div id="invAccessories"></div>
+
+    <div class="section-title">🕓 Historial reciente</div>
+    <div id="invHistory"></div>
+  </section>
+
 </main>
 
 <div class="save-toast" id="toast">Guardado ✓</div>
@@ -587,7 +628,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 47;
+const APP_VERSION = 48;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -759,6 +800,7 @@ function rerenderActiveView(){
   else if(view==='semana') renderSemana();
   else if(view==='mes') renderMes();
   else if(view==='cierre') renderCierre();
+  else if(view==='inventario') renderInventario();
 }
 
 // Same synchronous-looking API the rest of the app already uses — reads come
@@ -1099,6 +1141,53 @@ function clearMonthOverride(monthKey, execId, catId){
   const data = loadMonthOverride(monthKey);
   if(data[execId]) delete data[execId][catId];
   saveMonthOverride(monthKey, data);
+}
+
+// ---- INVENTARIO (phones + accessories, tied into Postpago/Renovación sales) ----
+function loadInventory(){
+  const raw = storageGet('cp_inventory');
+  if(raw){ try{ return JSON.parse(raw); }catch(e){} }
+  return [];
+}
+function saveInventory(list){
+  return storageSet('cp_inventory', JSON.stringify(list));
+}
+function loadInventoryLog(){
+  const raw = storageGet('cp_inventory_log');
+  if(raw){ try{ return JSON.parse(raw); }catch(e){} }
+  return [];
+}
+function saveInventoryLog(list){
+  return storageSet('cp_inventory_log', JSON.stringify(list.slice(0,300)));
+}
+
+// Sells one unit of a phone: decrements stock, credits the sale to that
+// exec's Postpago/Renovación count for TODAY, and logs who/what/when.
+function sellFromInventory(productId, execId, catId){
+  const inv = loadInventory();
+  const product = inv.find(p=>p.id===productId);
+  if(!product){ showToast('Producto no encontrado', true); return; }
+  if(product.stock<=0){ showToast('Sin stock disponible ⚠️', true); return; }
+
+  product.stock -= 1;
+  const invOk = saveInventory(inv);
+
+  const todayStr = fmtDate(new Date());
+  const dayVals = loadDay(todayStr);
+  dayVals[execId][catId] = (dayVals[execId][catId]||0) + 1;
+  dayVals[execId]._lastActivity = Date.now();
+  const dayOk = saveDay(todayStr, dayVals);
+
+  const log = loadInventoryLog();
+  const execName = (EXECS.find(e=>e.id===execId)||{name:execId}).name;
+  const catLabel = (CATS.find(c=>c.id===catId)||{label:catId}).label;
+  log.unshift({ts: Date.now(), date: todayStr, productName: product.name, execName, catLabel});
+  saveInventoryLog(log);
+
+  showToast((invOk && dayOk) ? `Venta registrada: ${product.name} ✓` : '⚠ Guardado local, revisa tu conexión', !(invOk && dayOk));
+  renderInventario();
+  const activeTab = document.querySelector('.tab-btn.active');
+  if(activeTab && activeTab.dataset.view==='hoy' && fmtDate(currentDate)===todayStr) renderHoy();
 }
 
 function loadDay(dateStr){
@@ -2045,6 +2134,171 @@ function reopenDay(dateStr){
   catch(e){ console.error('No se pudo reabrir el día', e); }
 }
 
+let invBrandFilter = 'all';
+
+function decontarAccesorio(productId){
+  const inv = loadInventory();
+  const product = inv.find(p=>p.id===productId);
+  if(!product){ showToast('Producto no encontrado', true); return; }
+  if(product.stock<=0){ showToast('Sin stock disponible ⚠️', true); return; }
+  product.stock -= 1;
+  const ok = saveInventory(inv);
+
+  const log = loadInventoryLog();
+  const session = getSession();
+  const execName = (EXECS.find(e=>e.id===session)||{name: currentRole()==='gerente'?'Gerente':session}).name;
+  log.unshift({ts: Date.now(), date: fmtDate(new Date()), productName: product.name, execName, catLabel: 'Accesorio'});
+  saveInventoryLog(log);
+
+  showToast(ok ? `Descontado: ${product.name} ✓` : '⚠ Guardado local, revisa tu conexión', !ok);
+  renderInventario();
+}
+
+function renderInventario(){
+  const inv = loadInventory();
+  const role = currentRole();
+  const session = getSession();
+  const searchEl = document.getElementById('inv-search');
+  const searchTerm = (searchEl ? searchEl.value : '').toLowerCase();
+
+  const addForm = document.getElementById('invAddForm');
+  if(addForm) addForm.style.display = role==='gerente' ? '' : 'none';
+
+  function matches(p){
+    if(!searchTerm) return true;
+    return p.name.toLowerCase().includes(searchTerm) || (p.sku||'').toLowerCase().includes(searchTerm);
+  }
+
+  function phoneRowHtml(p){
+    const low = p.stock<=2;
+    const sellControls = `
+      <select class="inv-sell-cat" data-id="${p.id}" style="font-size:11px; padding:3px 6px; border-radius:6px;">
+        <option value="postpago">📱 Postpago</option>
+        <option value="renov">♻️ Renovación</option>
+      </select>
+      ${role==='gerente' ? `
+        <select class="inv-sell-exec" data-id="${p.id}" style="font-size:11px; padding:3px 6px; border-radius:6px;">
+          ${EXECS.map(ex=>`<option value="${ex.id}">${ex.name.split(' ')[0]}</option>`).join('')}
+        </select>` : ''}
+      <button type="button" class="inv-sell-btn" data-id="${p.id}" style="font-size:11px; padding:5px 10px; border-radius:8px; background:var(--accent); color:#0b1220; border:none; font-weight:800;">Vender</button>
+    `;
+    return `
+      <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; padding:10px 14px; background:var(--bg-panel); border:1px solid var(--line); border-radius:12px; margin-bottom:8px;">
+        <div style="min-width:0;">
+          <div style="font-weight:700; font-size:13px;">${p.name}${p.sku?` <span style="font-size:10px; color:var(--ink-faint); font-weight:700;">SKU: ${p.sku}</span>`:''}</div>
+          <div style="font-size:11px; color:${low?'var(--bad)':'var(--ink-faint)'}; font-weight:${low?'800':'600'};">${p.stock} en stock${low?' ⚠️ bajo':''}</div>
+        </div>
+        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+          ${sellControls}
+          ${role==='gerente' ? `
+            <input type="number" min="0" class="inv-stock-edit" data-id="${p.id}" value="${p.stock}" style="width:56px; font-size:12px; padding:5px; border-radius:6px; border:1px solid var(--line); background:var(--bg-card); color:var(--ink);">
+            <button type="button" class="inv-del-btn" data-id="${p.id}" style="background:none; border:none; color:var(--bad); font-size:16px;">🗑️</button>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  // Accessory cards: SKU up front, a stock pill with a status dot, and a
+  // single-tap "Descontar 1" — accessories aren't tied to Postpago/Renovación,
+  // so there's no category/exec picker to slow things down.
+  function accessoryRowHtml(p){
+    const low = p.stock<=2;
+    const dotColor = p.stock<=0 ? 'var(--bad)' : low ? 'var(--acc)' : 'var(--renov)';
+    return `
+      <div style="padding:12px 14px; background:var(--bg-panel); border:1px solid var(--line); border-radius:12px; margin-bottom:8px;">
+        ${p.sku ? `<div style="font-size:10.5px; color:var(--ink-faint); font-weight:700; letter-spacing:.03em;">N. ${p.sku}</div>` : ''}
+        <div style="font-weight:700; font-size:13.5px; margin:2px 0 8px;">${p.name}${p.brand?` <span style="font-size:10px; color:var(--ink-faint); font-weight:600;">· ${p.brand}</span>`:''}</div>
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <span style="display:inline-flex; align-items:center; gap:6px; background:${dotColor}22; color:${dotColor}; font-weight:700; font-size:12px; padding:5px 12px; border-radius:20px;">
+            <span style="width:7px; height:7px; border-radius:50%; background:${dotColor};"></span>
+            ${p.stock} disponible${p.stock===1?'':'s'}
+          </span>
+          <div style="display:flex; gap:6px; align-items:center;">
+            <button type="button" class="inv-decontar-btn" data-id="${p.id}" style="font-size:12px; padding:7px 14px; border-radius:8px; background:var(--accent); color:#0b1220; border:none; font-weight:800;">Descontar 1</button>
+            ${role==='gerente' ? `
+              <input type="number" min="0" class="inv-stock-edit" data-id="${p.id}" value="${p.stock}" style="width:50px; font-size:12px; padding:5px; border-radius:6px; border:1px solid var(--line); background:var(--bg-card); color:var(--ink);">
+              <button type="button" class="inv-del-btn" data-id="${p.id}" style="background:none; border:none; color:var(--bad); font-size:16px;">🗑️</button>
+            ` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  const phones = inv.filter(p=>p.category==='telefono' && matches(p));
+  let accs = inv.filter(p=>p.category==='accesorio' && matches(p));
+
+  // Brand filter pills, built from whatever brands are actually in stock.
+  const brands = Array.from(new Set(inv.filter(p=>p.category==='accesorio' && p.brand).map(p=>p.brand))).sort();
+  const brandFiltersEl = document.getElementById('invBrandFilters');
+  if(brandFiltersEl){
+    if(brands.length===0){
+      brandFiltersEl.innerHTML = '';
+    } else {
+      const pill = (label, value) => `<button type="button" class="inv-brand-pill" data-brand="${value}" style="font-size:11.5px; font-weight:700; padding:6px 14px; border-radius:20px; border:1px solid var(--line); background:${invBrandFilter===value?'var(--accent)':'var(--bg-card)'}; color:${invBrandFilter===value?'#0b1220':'var(--ink)'};">${label}</button>`;
+      brandFiltersEl.innerHTML = pill('Todas las marcas', 'all') + brands.map(b=>pill(b, b)).join('');
+      brandFiltersEl.querySelectorAll('.inv-brand-pill').forEach(btn=>{
+        btn.addEventListener('click', ()=>{ invBrandFilter = btn.dataset.brand; renderInventario(); });
+      });
+    }
+  }
+  if(invBrandFilter !== 'all') accs = accs.filter(p=> p.brand===invBrandFilter);
+
+  const phonesEl = document.getElementById('invPhones');
+  if(phonesEl) phonesEl.innerHTML = phones.length
+    ? phones.map(phoneRowHtml).join('')
+    : `<div class="insight-bar">${searchTerm ? 'Sin resultados.' : 'Aún no hay teléfonos en el inventario' + (role==='gerente' ? ' — agrégalos arriba.' : '.')}</div>`;
+
+  const accsEl = document.getElementById('invAccessories');
+  if(accsEl) accsEl.innerHTML = accs.length
+    ? `<div style="font-size:11.5px; color:var(--ink-faint); margin-bottom:8px;">${accs.length} artículo${accs.length===1?'':'s'}</div>` + accs.map(accessoryRowHtml).join('')
+    : `<div class="insight-bar">${searchTerm || invBrandFilter!=='all' ? 'Sin resultados.' : 'Aún no hay accesorios en el inventario' + (role==='gerente' ? ' — agrégalos arriba.' : '.')}</div>`;
+
+  const log = loadInventoryLog();
+  const histEl = document.getElementById('invHistory');
+  if(histEl) histEl.innerHTML = log.length
+    ? log.slice(0,15).map(l=>{
+        const d = new Date(l.ts);
+        const timeStr = d.toLocaleString('es-MX', {day:'numeric', month:'short', hour:'numeric', minute:'2-digit'});
+        return `<div style="font-size:12px; padding:8px 12px; border-bottom:1px solid var(--line);"><b>${l.execName}</b> ${l.catLabel==='Accesorio'?'descontó':'vendió'} <b>${l.productName}</b>${l.catLabel!=='Accesorio' ? ` (${l.catLabel})` : ''} — ${timeStr}</div>`;
+      }).join('')
+    : `<div class="insight-bar">Aún no hay movimientos registrados.</div>`;
+
+  document.querySelectorAll('.inv-sell-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const id = btn.dataset.id;
+      const catSel = document.querySelector(`.inv-sell-cat[data-id="${id}"]`);
+      const execSel = document.querySelector(`.inv-sell-exec[data-id="${id}"]`);
+      const execId = execSel ? execSel.value : session;
+      sellFromInventory(id, execId, catSel.value);
+    });
+  });
+  document.querySelectorAll('.inv-decontar-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> decontarAccesorio(btn.dataset.id));
+  });
+
+  if(role==='gerente'){
+    document.querySelectorAll('.inv-stock-edit').forEach(inp=>{
+      inp.addEventListener('change', ()=>{
+        const id = inp.dataset.id;
+        const list = loadInventory();
+        const p = list.find(x=>x.id===id);
+        if(p){ p.stock = Number(inp.value)||0; saveInventory(list); showToast('Stock actualizado ✓'); renderInventario(); }
+      });
+    });
+    document.querySelectorAll('.inv-del-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const id = btn.dataset.id;
+        const list = loadInventory().filter(x=>x.id!==id);
+        saveInventory(list);
+        showToast('Producto eliminado');
+        renderInventario();
+      });
+    });
+  }
+}
+
 function renderCierre(){
   const dateStr = fmtDate(currentDate);
   const dayVals = loadDay(dateStr);
@@ -2290,6 +2544,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     if(btn.dataset.view==='semana'){ currentWeekAnchor = new Date(currentDate); renderSemana(); }
     if(btn.dataset.view==='mes'){ mesViewAnchor = new Date(currentDate); renderMes(); }
     if(btn.dataset.view==='cierre'){ renderCierre(); }
+    if(btn.dataset.view==='inventario'){ renderInventario(); }
   });
 });
 
@@ -2935,6 +3190,25 @@ document.getElementById('reportCopyBtn').addEventListener('click', ()=>{
 });
 document.getElementById('reporteSemanaBtn').addEventListener('click', ()=> showReportModal(generarReporteSemanal()));
 document.getElementById('reporteMesBtn').addEventListener('click', ()=> showReportModal(generarReporteMensual()));
+
+document.getElementById('invAddBtn').addEventListener('click', ()=>{
+  const name = document.getElementById('inv-new-name').value.trim();
+  if(!name){ showToast('Ponle un nombre al producto', true); return; }
+  const type = document.getElementById('inv-new-type').value;
+  const sku = document.getElementById('inv-new-sku').value.trim();
+  const brand = document.getElementById('inv-new-brand').value.trim();
+  const stock = Number(document.getElementById('inv-new-stock').value)||0;
+  const list = loadInventory();
+  list.push({id: 'p_'+Date.now(), name, category:type, sku, brand, stock});
+  const ok = saveInventory(list);
+  document.getElementById('inv-new-name').value = '';
+  document.getElementById('inv-new-sku').value = '';
+  document.getElementById('inv-new-brand').value = '';
+  document.getElementById('inv-new-stock').value = '0';
+  showToast(ok ? 'Producto agregado ✓' : 'No se pudo guardar', !ok);
+  renderInventario();
+});
+document.getElementById('inv-search').addEventListener('input', ()=> renderInventario());
 
 function iaGenerarMensajeWhatsApp(){
   const dayVals = loadDay(fmtDate(new Date()));
