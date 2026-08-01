@@ -605,6 +605,7 @@
     </div>
 
     <div class="section-title">📱 Teléfonos</div>
+    <div id="invPhoneBrandFilters" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;"></div>
     <div id="invPhones"></div>
 
     <div class="section-title">🎧 Accesorios</div>
@@ -651,7 +652,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 50;
+const APP_VERSION = 51;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -2158,12 +2159,29 @@ function reopenDay(dateStr){
 }
 
 let invBrandFilter = 'all';
+let invPhoneBrandFilter = 'all';
 const INV_STORE_MATCH = 'PORTAL LAGOS DE MORENO'; // matches the org name column regardless of store-code prefix
 
 function guessAccessoryBrand(desc){
   const d = (desc||'').toUpperCase();
   const known = ['SPECK','QUIKCELL','QKCELL','APPLE','NOMAD','SAMSUNG','OTTERBOX','BELKIN','ANKER'];
   for(const b of known){ if(d.includes(b)) return b==='QKCELL' ? 'QUIKCELL' : b; }
+  return '';
+}
+
+function guessPhoneBrand(desc){
+  const d = (desc||'').toUpperCase();
+  const known = ['APPLE','IPHONE','GOOGLE','PIXEL','HONOR','SAMSUNG','GALAXY','MOTOROLA','MOTO','XIAOMI','REDMI','OPPO','ZTE','ALCATEL','NOKIA','TCL'];
+  for(const b of known){
+    if(d.includes(b)){
+      if(b==='IPHONE') return 'APPLE';
+      if(b==='PIXEL') return 'GOOGLE';
+      if(b==='GALAXY') return 'SAMSUNG';
+      if(b==='MOTO') return 'MOTOROLA';
+      if(b==='REDMI') return 'XIAOMI';
+      return b;
+    }
+  }
   return '';
 }
 
@@ -2274,6 +2292,7 @@ function importInventoryFromExcel(file){
 
         const sku = (r[colSku]||'').toString().trim();
         const name = (r[colDesc]||'').toString().trim();
+        const modelo = colModelo>=0 ? (r[colModelo]||'').toString().trim() : '';
         const qty = Number(r[colQty])||0;
         if(!name) continue;
 
@@ -2282,10 +2301,20 @@ function importInventoryFromExcel(file){
           existing.stock = qty;
           existing.name = name;
           if(category==='accesorio' && !existing.brand) existing.brand = guessAccessoryBrand(name);
-          if(category==='telefono') updatedPhones++; else updatedAccs++;
+          if(category==='telefono'){
+            existing.brand = guessPhoneBrand(name) || existing.brand || '';
+            existing.modelo = modelo || existing.modelo || name;
+            existing.color = extractColor(name);
+            updatedPhones++;
+          } else updatedAccs++;
         } else {
           const product = {id:'p_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), name, category, sku, stock:qty};
           if(category==='accesorio') product.brand = guessAccessoryBrand(name);
+          if(category==='telefono'){
+            product.brand = guessPhoneBrand(name);
+            product.modelo = modelo || name;
+            product.color = extractColor(name);
+          }
           inv.push(product);
           if(category==='telefono') newPhones++; else newAccs++;
         }
@@ -2431,7 +2460,7 @@ function renderInventario(){
     return p.name.toLowerCase().includes(searchTerm) || (p.sku||'').toLowerCase().includes(searchTerm);
   }
 
-  function phoneRowHtml(p){
+  function phoneVariantRowHtml(p){
     const low = p.stock<=2;
     const sellControls = `
       <select class="inv-sell-cat" data-id="${p.id}" style="font-size:11px; padding:3px 6px; border-radius:6px;">
@@ -2445,9 +2474,9 @@ function renderInventario(){
       <button type="button" class="inv-sell-btn" data-id="${p.id}" style="font-size:11px; padding:5px 10px; border-radius:8px; background:var(--accent); color:#0b1220; border:none; font-weight:800;">Vender</button>
     `;
     return `
-      <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; padding:10px 14px; background:var(--bg-panel); border:1px solid var(--line); border-radius:12px; margin-bottom:8px;">
+      <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; padding:10px 0; border-top:1px solid var(--line);">
         <div style="min-width:0;">
-          <div style="font-weight:700; font-size:13px;">${p.name}${p.sku?` <span style="font-size:10px; color:var(--ink-faint); font-weight:700;">SKU: ${p.sku}</span>`:''}</div>
+          <div style="font-weight:700; font-size:12.5px;">${p.color || p.name}${p.sku?` <span style="font-size:10px; color:var(--ink-faint); font-weight:700;">SKU: ${p.sku}</span>`:''}</div>
           <div style="font-size:11px; color:${low?'var(--bad)':'var(--ink-faint)'}; font-weight:${low?'800':'600'};">${p.stock} en stock${low?' ⚠️ bajo':''}</div>
         </div>
         <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
@@ -2457,6 +2486,29 @@ function renderInventario(){
             <button type="button" class="inv-del-btn" data-id="${p.id}" style="background:none; border:none; color:var(--bad); font-size:16px;">🗑️</button>
           ` : ''}
         </div>
+      </div>
+    `;
+  }
+
+  // Groups this store's phones by model — same visual pattern as the
+  // region-wide Catálogo Bajío — with the sell controls for each color
+  // nested underneath, since selling still has to target one exact SKU.
+  function phoneModelCardHtml(modelo, variants){
+    const total = variants.reduce((s,p)=> s+p.stock, 0);
+    const colorPills = variants.map(p=>
+      `<span style="display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:4px 10px; border-radius:14px; background:var(--bg-card); border:1px solid var(--line); margin:3px 4px 3px 0;">${p.color||'—'} · ${p.stock}</span>`
+    ).join('');
+    return `
+      <div style="padding:12px 14px; background:var(--bg-panel); border:1px solid var(--line); border-radius:12px; margin-bottom:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+          <div style="font-weight:800; font-size:13.5px; flex:1;">${modelo}</div>
+          <div style="text-align:right; flex-shrink:0;">
+            <div style="font-size:17px; font-weight:800;">${total}</div>
+            <div style="font-size:9.5px; color:var(--ink-faint); font-weight:700;">EN STOCK</div>
+          </div>
+        </div>
+        <div style="margin-top:6px;">${colorPills}</div>
+        <div>${variants.map(phoneVariantRowHtml).join('')}</div>
       </div>
     `;
   }
@@ -2488,8 +2540,24 @@ function renderInventario(){
     `;
   }
 
-  const phones = inv.filter(p=>p.category==='telefono' && matches(p));
+  let phones = inv.filter(p=>p.category==='telefono' && matches(p));
   let accs = inv.filter(p=>p.category==='accesorio' && matches(p));
+
+  // Brand filter pills for phones, built from whatever's actually in stock.
+  const phoneBrands = Array.from(new Set(inv.filter(p=>p.category==='telefono' && p.brand).map(p=>p.brand))).sort();
+  const phoneBrandFiltersEl = document.getElementById('invPhoneBrandFilters');
+  if(phoneBrandFiltersEl){
+    if(phoneBrands.length===0){
+      phoneBrandFiltersEl.innerHTML = '';
+    } else {
+      const pill = (label, value) => `<button type="button" class="inv-phone-brand-pill" data-brand="${value}" style="font-size:11.5px; font-weight:700; padding:6px 14px; border-radius:20px; border:1px solid var(--line); background:${invPhoneBrandFilter===value?'var(--accent)':'var(--bg-card)'}; color:${invPhoneBrandFilter===value?'#0b1220':'var(--ink)'};">${label}</button>`;
+      phoneBrandFiltersEl.innerHTML = pill('Todas las marcas', 'all') + phoneBrands.map(b=>pill(b, b)).join('');
+      phoneBrandFiltersEl.querySelectorAll('.inv-phone-brand-pill').forEach(btn=>{
+        btn.addEventListener('click', ()=>{ invPhoneBrandFilter = btn.dataset.brand; renderInventario(); });
+      });
+    }
+  }
+  if(invPhoneBrandFilter !== 'all') phones = phones.filter(p=> p.brand===invPhoneBrandFilter);
 
   // Brand filter pills, built from whatever brands are actually in stock.
   const brands = Array.from(new Set(inv.filter(p=>p.category==='accesorio' && p.brand).map(p=>p.brand))).sort();
@@ -2508,9 +2576,19 @@ function renderInventario(){
   if(invBrandFilter !== 'all') accs = accs.filter(p=> p.brand===invBrandFilter);
 
   const phonesEl = document.getElementById('invPhones');
-  if(phonesEl) phonesEl.innerHTML = phones.length
-    ? phones.map(phoneRowHtml).join('')
-    : `<div class="insight-bar">${searchTerm ? 'Sin resultados.' : 'Aún no hay teléfonos en el inventario' + (role==='gerente' ? ' — agrégalos arriba.' : '.')}</div>`;
+  if(phonesEl){
+    if(phones.length===0){
+      phonesEl.innerHTML = `<div class="insight-bar">${searchTerm || invPhoneBrandFilter!=='all' ? 'Sin resultados.' : 'Aún no hay teléfonos en el inventario' + (role==='gerente' ? ' — agrégalos arriba.' : '.')}</div>`;
+    } else {
+      const byModel = {};
+      phones.forEach(p=>{
+        const key = p.modelo || p.name;
+        if(!byModel[key]) byModel[key] = [];
+        byModel[key].push(p);
+      });
+      phonesEl.innerHTML = Object.keys(byModel).sort().map(modelo=> phoneModelCardHtml(modelo, byModel[modelo])).join('');
+    }
+  }
 
   const accsEl = document.getElementById('invAccessories');
   if(accsEl) accsEl.innerHTML = accs.length
