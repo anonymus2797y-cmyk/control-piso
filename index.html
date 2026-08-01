@@ -415,7 +415,6 @@
   <button class="tab-btn active" data-view="hoy">Hoy</button>
   <button class="tab-btn" data-view="semana">Semana</button>
   <button class="tab-btn" data-view="mes">Mes</button>
-  <button class="tab-btn" data-view="equipo">Equipo</button>
   <button class="tab-btn" data-view="cierre">Cierre</button>
   <button class="tab-btn" data-view="ia">IA</button>
   <button class="tab-btn" data-view="metas">Metas</button>
@@ -483,18 +482,6 @@
     <button class="save-btn" id="shareMesBtn">📤 Compartir avance del mes</button>
     <button class="save-btn" id="reporteMesBtn" style="margin-top:8px; background:var(--bg-card); color:var(--ink);">📝 Generar reporte de cierre (WhatsApp)</button>
 
-  </section>
-
-  <!-- EQUIPO -->
-  <section class="view" id="view-equipo">
-    <div class="section-title" style="margin-top:0;">🏆 Ventas totales — esta semana</div>
-    <div class="podium" id="equipoRanking"></div>
-    <div class="section-title">📊 Cumplimiento de la semana</div>
-    <div class="podium" id="equipoCumplimiento"></div>
-    <div class="section-title">📈 Tendencia vs semana pasada</div>
-    <div id="equipoTendencia"></div>
-    <div class="section-title">🥧 Aporte al equipo</div>
-    <div class="podium" id="equipoAporte"></div>
   </section>
 
   <!-- CIERRE -->
@@ -600,7 +587,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 45;
+const APP_VERSION = 47;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -771,7 +758,6 @@ function rerenderActiveView(){
   if(view==='hoy') renderHoy();
   else if(view==='semana') renderSemana();
   else if(view==='mes') renderMes();
-  else if(view==='equipo') renderEquipo();
   else if(view==='cierre') renderCierre();
 }
 
@@ -955,58 +941,6 @@ function renderPostpagoPodium(elId, totalsByExec, unit, ascending){
       </div>
     </div>
   `).join('');
-}
-
-// ---- EQUIPO: real numbers, real bars, no chatty prose ----
-function renderEquipo(){
-  const today = new Date();
-  const monday = getMonday(today);
-
-  const weekExecTotals = {}; EXECS.forEach(ex=> weekExecTotals[ex.id]=0);
-  const lastWeekExecTotals = {}; EXECS.forEach(ex=> lastWeekExecTotals[ex.id]=0);
-  for(let i=0;i<7;i++){
-    const d = new Date(monday); d.setDate(monday.getDate()+i);
-    if(d<=today){
-      const dv = loadDay(fmtDate(d));
-      EXECS.forEach(ex=> weekExecTotals[ex.id] += totalFor(dv[ex.id]));
-    }
-    const dLast = new Date(monday); dLast.setDate(monday.getDate()+i-7);
-    const dvLast = loadDay(fmtDate(dLast));
-    EXECS.forEach(ex=> lastWeekExecTotals[ex.id] += totalFor(dvLast[ex.id]));
-  }
-
-  renderPostpagoPodium('equipoRanking', weekExecTotals, 'ventas');
-
-  const weekCuota = loadWeekCuota(getISOWeekString(monday));
-  const weekCuotaTotal = sumVals(weekCuota);
-  const fairShareWeek = weekCuotaTotal / EXECS.length;
-  const pctByExec = {};
-  EXECS.forEach(ex=> pctByExec[ex.id] = fairShareWeek>0 ? Math.round((weekExecTotals[ex.id]/fairShareWeek)*100) : 0);
-  renderPostpagoPodium('equipoCumplimiento', pctByExec, '%');
-
-  const teamTotal = sumVals(weekExecTotals);
-  const shareByExec = {};
-  EXECS.forEach(ex=> shareByExec[ex.id] = teamTotal>0 ? Math.round((weekExecTotals[ex.id]/teamTotal)*100) : 0);
-  renderPostpagoPodium('equipoAporte', shareByExec, '%');
-
-  const tendenciaEl = document.getElementById('equipoTendencia');
-  if(tendenciaEl){
-    tendenciaEl.innerHTML = EXECS.map(ex=>{
-      const cur = weekExecTotals[ex.id];
-      const prev = lastWeekExecTotals[ex.id];
-      let icon='➖', label='Sin datos de la semana pasada', color='var(--ink-faint)';
-      if(prev>0 || cur>0){
-        const diffPct = prev>0 ? Math.round(((cur-prev)/prev)*100) : 100;
-        if(cur > prev*1.1){ icon='📈'; label=`Mejorando (${diffPct>=0?'+':''}${diffPct}%)`; color='var(--renov)'; }
-        else if(cur < prev*0.9){ icon='📉'; label=`Bajando (${diffPct}%)`; color='var(--bad)'; }
-        else { icon='➖'; label=`Igual (${diffPct>=0?'+':''}${diffPct}%)`; color='var(--ink-dim)'; }
-      }
-      return `<div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:var(--bg-panel); border:1px solid var(--line); border-radius:12px; margin-bottom:8px;">
-        <span style="font-weight:700; font-size:13px;">${ex.name}</span>
-        <span style="color:${color}; font-weight:700; font-size:12.5px;">${icon} ${label}</span>
-      </div>`;
-    }).join('');
-  }
 }
 
 // daysElapsed/totalDays let it project where each category will land if the
@@ -2355,7 +2289,6 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     if(btn.dataset.view==='hoy'){ renderHoy(); }
     if(btn.dataset.view==='semana'){ currentWeekAnchor = new Date(currentDate); renderSemana(); }
     if(btn.dataset.view==='mes'){ mesViewAnchor = new Date(currentDate); renderMes(); }
-    if(btn.dataset.view==='equipo'){ renderEquipo(); }
     if(btn.dataset.view==='cierre'){ renderCierre(); }
   });
 });
@@ -2853,12 +2786,12 @@ function generarReporteSemanal(){
       return `${c.emoji} ${c.label} ${actual} de ${goal} ${icon} (${pct}%)`;
     });
     const avancePct = totalObjetivo>0 ? Math.round((totalVentas/totalObjetivo)*1000)/10 : 0;
-    return {ex, catLines, totalVentas, totalObjetivo, avancePct};
+    return {ex, catLines, totalVentas, totalObjetivo, avancePct, postpago: et.postpago||0};
   });
-  execSummaries.sort((a,b)=> b.avancePct - a.avancePct);
+  execSummaries.sort((a,b)=> b.postpago - a.postpago);
 
   const medals = ['🥇','🥈','🥉'];
-  let msg = `📊 ACTUALIZACIÓN DE VENTAS – SEMANA ${weekNum} (${formatRangeDates(monday, sunday)})\n🏆 ORDENADOS POR RESULTADO GENERAL\n\n━━━━━━━━━━━━━━\n\n`;
+  let msg = `📊 ACTUALIZACIÓN DE VENTAS – SEMANA ${weekNum} (${formatRangeDates(monday, sunday)})\n🏆 ORDENADOS POR POSTPAGO\n\n━━━━━━━━━━━━━━\n\n`;
   execSummaries.forEach((s,i)=>{
     msg += `${medals[i]||(i+1)+'.'} ${i+1}.º LUGAR — ${s.ex.name}\n\n`;
     msg += s.catLines.join('\n') + '\n\n';
@@ -2874,9 +2807,9 @@ function generarReporteSemanal(){
     msg += `${c.emoji} ${c.label} ${actual} de ${goal} ${icon}${goal>0?` (${pct}%)`:''}\n`;
   });
 
-  msg += `\n━━━━━━━━━━━━━━\n\n🏆 RESULTADO GENERAL\n\n`;
+  msg += `\n━━━━━━━━━━━━━━\n\n🏆 RESULTADO GENERAL (POSTPAGO)\n\n`;
   execSummaries.forEach((s,i)=>{
-    msg += `${medals[i]||(i+1)+'.'} ${s.ex.name.split(' ')[0]} — ${s.avancePct}% (${s.totalVentas} ventas)\n`;
+    msg += `${medals[i]||(i+1)+'.'} ${s.ex.name.split(' ')[0]} — ${s.postpago} postpago${s.postpago===1?'':'s'} (${s.totalVentas} ventas en total)\n`;
   });
   const grandVentas = sumVals(teamTotals);
   const grandObjetivo = sumVals(weekCuota);
@@ -2944,13 +2877,12 @@ function generarReporteMensual(){
 
   msg += `\n━━━━━━━━━━━━━━\n\n`;
 
-  const rankBy = hasCommission
-    ? [...execSummaries].sort((a,b)=> b.comision-a.comision)
-    : [...execSummaries].sort((a,b)=> b.totalVentas-a.totalVentas);
+  const rankBy = [...execSummaries].sort((a,b)=> (b.raw.postpago||0) - (a.raw.postpago||0));
   const medals = ['🥇','🥈','🥉'];
-  msg += `🏆 RANKING DEL MES ${hasCommission?'(COMISIÓN GENERADA)':'(VENTAS TOTALES)'}\n\n`;
+  msg += `🏆 RANKING DEL MES (POSTPAGO)\n\n`;
   rankBy.forEach((s,i)=>{
-    msg += `${medals[i]||(i+1)+'.'} ${s.ex.name.split(' ')[0]} — ${hasCommission ? '$'+Math.round(s.comision).toLocaleString('es-MX') : s.totalVentas+' ventas'}\n`;
+    const extra = hasCommission ? ` · $${Math.round(s.comision).toLocaleString('es-MX')}` : '';
+    msg += `${medals[i]||(i+1)+'.'} ${s.ex.name.split(' ')[0]} — ${s.raw.postpago||0} postpago${(s.raw.postpago||0)===1?'':'s'}${extra}\n`;
   });
 
   const campeon = [...execSummaries].sort((a,b)=>{
@@ -3142,11 +3074,11 @@ function applyRolePermissions(){
   const commitInputs = document.querySelectorAll('#commitRow input');
   const metasInputs = document.querySelectorAll('#view-metas input');
 
-  // Every tab is visible to everyone EXCEPT the IA assistant and the Equipo
-  // comparison view, which are gerente-only. Editing restrictions elsewhere
-  // are enforced inside renderCards/renderMes/renderCierre themselves.
+  // Every tab is visible to everyone EXCEPT the IA assistant, which is
+  // gerente-only. Editing restrictions elsewhere are enforced inside
+  // renderCards/renderMes/renderCierre themselves.
   tabButtons.forEach(b=>{
-    b.style.display = ((b.dataset.view === 'ia' || b.dataset.view === 'equipo') && role !== 'gerente') ? 'none' : '';
+    b.style.display = (b.dataset.view === 'ia' && role !== 'gerente') ? 'none' : '';
   });
   execSwitchWrap.style.display = 'flex';
 
