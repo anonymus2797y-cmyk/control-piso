@@ -652,7 +652,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 53;
+const APP_VERSION = 54;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -2239,6 +2239,33 @@ function colorToSwatch(colorName){
   return '#8a8a8a'; // N/D or unrecognized
 }
 
+// Removes the detected color phrase (and a trailing "ATT") from a
+// description, giving a clean grouping key. Used as a fallback for records
+// saved before "modelo" was captured separately, so old inventory items
+// group correctly without needing to be re-imported.
+function stripColorFromDesc(desc, color){
+  if(!desc) return desc;
+  let cleaned = desc;
+  if(color && color!=='N/D'){
+    for(const [key, label] of COLOR_PHRASES){
+      if(label===color){
+        const re = new RegExp('\\b'+key.replace(/ /g,'\\s+')+'\\b','i');
+        cleaned = cleaned.replace(re,'');
+        break;
+      }
+    }
+  }
+  return cleaned.replace(/\bATT\b/gi,'').replace(/\s+/g,' ').trim();
+}
+function modelKeyFor(p){
+  if(p.modelo) return p.modelo;
+  const color = p.color || extractColor(p.name);
+  return stripColorFromDesc(p.name, color);
+}
+function colorFor(p){
+  return p.color || extractColor(p.name);
+}
+
 // The full-region phone catalog (every store, every model+color) — a
 // read-only reference, separate from this store's own sellable inventory.
 function loadBajioCatalog(){
@@ -2514,10 +2541,11 @@ function renderInventario(){
         </select>` : ''}
       <button type="button" class="inv-sell-btn" data-id="${p.id}" style="font-size:11px; padding:5px 10px; border-radius:8px; background:var(--accent); color:#0b1220; border:none; font-weight:800;">Vender</button>
     `;
+    const pColor = colorFor(p);
     return `
       <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; padding:10px 0; border-top:1px solid var(--line);">
         <div style="min-width:0;">
-          <div style="font-weight:700; font-size:12.5px; display:flex; align-items:center; gap:6px;"><span style="width:9px; height:9px; border-radius:50%; background:${colorToSwatch(p.color)}; border:1px solid rgba(255,255,255,.25); flex-shrink:0;"></span>${p.color || p.name}${p.sku?` <span style="font-size:10px; color:var(--ink-faint); font-weight:700;">SKU: ${p.sku}</span>`:''}</div>
+          <div style="font-weight:700; font-size:12.5px; display:flex; align-items:center; gap:6px;"><span style="width:9px; height:9px; border-radius:50%; background:${colorToSwatch(pColor)}; border:1px solid rgba(255,255,255,.25); flex-shrink:0;"></span>${pColor || p.name}${p.sku?` <span style="font-size:10px; color:var(--ink-faint); font-weight:700;">SKU: ${p.sku}</span>`:''}</div>
           <div style="font-size:11px; color:${low?'var(--bad)':'var(--ink-faint)'}; font-weight:${low?'800':'600'}; margin-left:15px;">${p.stock} en stock${low?' ⚠️ bajo':''}</div>
         </div>
         <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
@@ -2536,9 +2564,10 @@ function renderInventario(){
   // nested underneath, since selling still has to target one exact SKU.
   function phoneModelCardHtml(modelo, variants, key){
     const total = variants.reduce((s,p)=> s+p.stock, 0);
-    const colorPills = variants.map(p=>
-      `<span style="display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; padding:4px 10px; border-radius:14px; background:var(--bg-card); border:1px solid var(--line); margin:3px 4px 3px 0;"><span style="width:9px; height:9px; border-radius:50%; background:${colorToSwatch(p.color)}; border:1px solid rgba(255,255,255,.25); flex-shrink:0;"></span>${p.color||'—'} · ${p.stock}</span>`
-    ).join('');
+    const colorPills = variants.map(p=>{
+      const pColor = colorFor(p);
+      return `<span style="display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; padding:4px 10px; border-radius:14px; background:var(--bg-card); border:1px solid var(--line); margin:3px 4px 3px 0;"><span style="width:9px; height:9px; border-radius:50%; background:${colorToSwatch(pColor)}; border:1px solid rgba(255,255,255,.25); flex-shrink:0;"></span>${pColor||'—'} · ${p.stock}</span>`;
+    }).join('');
     const isOpen = invPhoneExpanded.has(key);
     return `
       <div style="padding:12px 14px; background:var(--bg-panel); border:1px solid var(--line); border-radius:12px; margin-bottom:10px;">
@@ -2627,7 +2656,7 @@ function renderInventario(){
     } else {
       const byModel = {};
       phones.forEach(p=>{
-        const key = p.modelo || p.name;
+        const key = modelKeyFor(p);
         if(!byModel[key]) byModel[key] = [];
         byModel[key].push(p);
       });
