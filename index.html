@@ -419,6 +419,7 @@
   <button class="tab-btn" data-view="ia">IA</button>
   <button class="tab-btn" data-view="metas">Metas</button>
   <button class="tab-btn" data-view="inventario">Inventario</button>
+  <button class="tab-btn" data-view="masivo">Masivo</button>
 </nav>
 
 <main>
@@ -579,24 +580,6 @@
       <div id="inv-import-status" style="font-size:12px; margin-top:8px; color:var(--ink-faint);"></div>
     </div>
 
-    <div class="goals-form" id="invAddForm" style="margin-bottom:14px;">
-      <div class="row" style="border-bottom:none; padding-bottom:6px;">
-        <label style="font-weight:800; font-size:12.5px;">+ Agregar producto</label>
-      </div>
-      <div class="row">
-        <label>Tipo</label>
-        <select id="inv-new-type" style="flex:1;">
-          <option value="telefono">📱 Teléfono</option>
-          <option value="accesorio">🎧 Accesorio</option>
-        </select>
-      </div>
-      <div class="row"><label>Nombre</label><input type="text" id="inv-new-name" placeholder="ej. Cargador PD25W USBC" style="flex:1;"></div>
-      <div class="row" id="inv-new-sku-row"><label>SKU</label><input type="text" id="inv-new-sku" placeholder="opcional" style="flex:1;"></div>
-      <div class="row" id="inv-new-brand-row"><label>Marca</label><input type="text" id="inv-new-brand" placeholder="ej. Quikcell, Speck, Apple" style="flex:1;"></div>
-      <div class="row"><label>Stock inicial</label><input type="number" min="0" id="inv-new-stock" value="0" style="width:70px;"></div>
-      <button type="button" class="save-btn" id="invAddBtn" style="margin-top:6px;">➕ Agregar al inventario</button>
-    </div>
-
     <div class="goals-form" style="margin-bottom:14px;">
       <div class="row" style="border-bottom:none;">
         <label style="font-weight:800; font-size:12.5px;">🔍 Buscar por SKU o nombre</label>
@@ -629,6 +612,51 @@
     <div id="invBajioList"></div>
   </section>
 
+  <!-- MASIVO -->
+  <section class="view" id="view-masivo">
+    <div class="section-title" style="margin-top:0;">📲 Masivo — Mensajes por WhatsApp</div>
+    <div id="masivoMeta" style="font-size:11.5px; color:var(--ink-faint); margin-bottom:10px;"></div>
+
+    <div class="goals-form" style="margin-bottom:14px;">
+      <div class="row" style="border-bottom:none; padding-bottom:6px;">
+        <label style="font-weight:800; font-size:12.5px;">📥 Importar contactos (Excel)</label>
+      </div>
+      <div class="goals-note">Sube un Excel con columnas de nombre y teléfono — se agregan a <b>tu propia</b> lista, nadie más la ve. Si un teléfono ya existe, solo se actualiza el nombre.</div>
+      <input type="file" id="masivo-import-file" accept=".xlsx,.xls" style="margin-top:8px; font-size:12px;">
+      <div id="masivo-import-status" style="font-size:12px; margin-top:8px; color:var(--ink-faint);"></div>
+    </div>
+
+    <div class="section-title">🏷️ Promociones</div>
+    <div class="goals-form" style="margin-bottom:10px;">
+      <div class="row"><label>Nombre</label><input type="text" id="promo-new-name" placeholder="ej. Promo Buen Fin" style="flex:1;"></div>
+      <div class="row" style="align-items:flex-start;">
+        <label style="padding-top:6px;">Mensaje</label>
+        <textarea id="promo-new-msg" placeholder="Hola {nombre}, tenemos una promoción especial para ti..." style="flex:1; min-height:70px; background:var(--bg-card); border:1px solid var(--line); border-radius:8px; padding:8px; color:var(--ink); font-family:inherit; font-size:13px;"></textarea>
+      </div>
+      <div class="goals-note">Usa <b>{nombre}</b> en el mensaje y se reemplaza solo por el nombre de cada cliente al enviar.</div>
+      <button type="button" class="save-btn" id="promoAddBtn" style="margin-top:6px;">➕ Guardar promoción</button>
+    </div>
+    <div id="masivoPromoList" style="margin-bottom:14px;"></div>
+
+    <div class="section-title">📤 Enviar masivo</div>
+    <div class="goals-form" style="margin-bottom:10px;">
+      <div class="row" style="border-bottom:none;">
+        <label>Promoción</label>
+        <select id="masivo-promo-select" style="flex:1;"></select>
+      </div>
+    </div>
+    <div class="goals-form" style="margin-bottom:10px;">
+      <div class="row" style="border-bottom:none;">
+        <input type="text" id="masivo-search" placeholder="Buscar contacto..." style="flex:1;">
+      </div>
+    </div>
+    <div id="masivoPauseNote"></div>
+    <div id="masivoContacts"></div>
+
+    <button type="button" class="save-btn" id="masivoUndoBtn" style="margin-top:12px; background:var(--bg-card); color:var(--ink);">↩️ Deshacer último envío</button>
+    <button type="button" class="save-btn" id="masivoExportBtn" style="margin-top:8px; background:var(--bg-card); color:var(--ink);">📊 Exportar a Excel</button>
+  </section>
+
 </main>
 
 <div class="save-toast" id="toast">Guardado ✓</div>
@@ -652,7 +680,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 54;
+const APP_VERSION = 56;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -825,6 +853,7 @@ function rerenderActiveView(){
   else if(view==='mes') renderMes();
   else if(view==='cierre') renderCierre();
   else if(view==='inventario') renderInventario();
+  else if(view==='masivo') renderMasivo();
 }
 
 // Same synchronous-looking API the rest of the app already uses — reads come
@@ -2518,8 +2547,6 @@ function renderInventario(){
   const searchEl = document.getElementById('inv-search');
   const searchTerm = (searchEl ? searchEl.value : '').toLowerCase();
 
-  const addForm = document.getElementById('invAddForm');
-  if(addForm) addForm.style.display = role==='gerente' ? '' : 'none';
   const importForm = document.getElementById('invImportForm');
   if(importForm) importForm.style.display = role==='gerente' ? '' : 'none';
 
@@ -2721,6 +2748,245 @@ function renderInventario(){
 
   if(!document.getElementById('inv-bajio-store').options.length) populateBajioStoreFilter();
   renderBajioCatalog();
+}
+
+// ---- MASIVO (per-exec bulk WhatsApp messaging) ----
+function masivoStorageKey(suffix){
+  const execId = getSession() || 'gerente';
+  return `cp_masivo_${suffix}_${execId}`;
+}
+function loadMasivoContacts(){
+  const raw = storageGet(masivoStorageKey('contacts'));
+  if(raw){ try{ return JSON.parse(raw); }catch(e){} }
+  return [];
+}
+function saveMasivoContacts(list){
+  return storageSet(masivoStorageKey('contacts'), JSON.stringify(list));
+}
+function loadMasivoLog(){
+  const raw = storageGet(masivoStorageKey('log'));
+  if(raw){ try{ return JSON.parse(raw); }catch(e){} }
+  return [];
+}
+function saveMasivoLog(list){
+  return storageSet(masivoStorageKey('log'), JSON.stringify(list.slice(0,500)));
+}
+// Promo templates are shared across the whole team — gerente manages them,
+// everyone can pick from the same list when sending.
+function loadMasivoPromos(){
+  const raw = storageGet('cp_masivo_promos');
+  if(raw){ try{ return JSON.parse(raw); }catch(e){} }
+  return [];
+}
+function saveMasivoPromos(list){
+  return storageSet('cp_masivo_promos', JSON.stringify(list));
+}
+function formatPhoneForWhatsApp(phone){
+  let digits = (phone||'').toString().replace(/\D/g,'');
+  if(digits.length===10) digits = '52'+digits;
+  return digits;
+}
+
+function importMasivoContactsFromExcel(file){
+  const statusEl = document.getElementById('masivo-import-status');
+  statusEl.textContent = 'Leyendo archivo…';
+  const reader = new FileReader();
+  reader.onerror = ()=>{ statusEl.textContent = '⚠ No se pudo leer el archivo.'; };
+  reader.onload = (e)=>{
+    try{
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
+      if(rows.length===0){ statusEl.textContent = '⚠ El archivo está vacío.'; return; }
+
+      let headerIdx = -1, colName = 0, colPhone = 1;
+      for(let i=0;i<Math.min(rows.length,10);i++){
+        const r = rows[i];
+        if(r && r.some(c=> typeof c==='string' && /nombre/i.test(c)) && r.some(c=> typeof c==='string' && /(tel[eé]fono|celular|whatsapp|movil|m[oó]vil)/i.test(c))){
+          headerIdx = i;
+          const header = r.map(h=> (h||'').toString().toLowerCase());
+          colName = header.findIndex(h=>/nombre/.test(h));
+          colPhone = header.findIndex(h=>/(tel[eé]fono|celular|whatsapp|movil|m[oó]vil)/.test(h));
+          break;
+        }
+      }
+
+      const contacts = loadMasivoContacts();
+      let added=0, updated=0, skipped=0;
+      const startRow = headerIdx===-1 ? 0 : headerIdx+1;
+      for(let i=startRow; i<rows.length; i++){
+        const r = rows[i];
+        if(!r) continue;
+        const name = (r[colName]||'').toString().trim();
+        const phoneRaw = (r[colPhone]||'').toString().trim();
+        if(!name || !phoneRaw){ skipped++; continue; }
+        const phone = formatPhoneForWhatsApp(phoneRaw);
+        if(!phone){ skipped++; continue; }
+        const existing = contacts.find(c=>c.phone===phone);
+        if(existing){ existing.name = name; updated++; }
+        else { contacts.push({id:'c_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), name, phone, notes:'', lastSentAt:null, lastPromo:''}); added++; }
+      }
+      const ok = saveMasivoContacts(contacts);
+      statusEl.textContent = ok
+        ? `✅ Importado: ${added} contactos nuevos, ${updated} actualizados${skipped?`, ${skipped} filas ignoradas`:''}.`
+        : '⚠ Se procesó pero no se pudo guardar.';
+      showToast(ok ? 'Contactos importados ✓' : 'No se pudo guardar', !ok);
+      renderMasivo();
+    } catch(err){
+      console.error('Error importando contactos', err);
+      statusEl.textContent = '⚠ Error al procesar el archivo: ' + err.message;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderMasivo(){
+  const session = getSession();
+  const execInfo = EXECS.find(e=>e.id===session);
+  const role = currentRole();
+  const label = execInfo ? execInfo.name : (role==='gerente' ? 'Gerente' : session);
+  const metaEl = document.getElementById('masivoMeta');
+  if(metaEl) metaEl.textContent = `Lista de: ${label} — solo tú ves y envías a estos contactos.`;
+
+  const contacts = loadMasivoContacts();
+  const promos = loadMasivoPromos();
+
+  const promoFormEl = document.getElementById('promoAddBtn');
+  const promoForm = promoFormEl ? promoFormEl.closest('.goals-form') : null;
+  if(promoForm) promoForm.style.display = role==='gerente' ? '' : 'none';
+
+  const promoListEl = document.getElementById('masivoPromoList');
+  if(promoListEl){
+    promoListEl.innerHTML = promos.length ? promos.map(p=>`
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:10px 14px; background:var(--bg-panel); border:1px solid var(--line); border-radius:12px; margin-bottom:8px;">
+        <div style="min-width:0;">
+          <div style="font-weight:700; font-size:13px;">${p.name}</div>
+          <div style="font-size:11px; color:var(--ink-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.message}</div>
+        </div>
+        ${role==='gerente' ? `<button type="button" class="promo-del-btn" data-id="${p.id}" style="background:none; border:none; color:var(--bad); font-size:16px; flex-shrink:0;">🗑️</button>` : ''}
+      </div>
+    `).join('') : `<div class="insight-bar">Aún no hay promociones${role==='gerente'?' — agrega una arriba.':'.'}</div>`;
+    promoListEl.querySelectorAll('.promo-del-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const list = loadMasivoPromos().filter(p=>p.id!==btn.dataset.id);
+        saveMasivoPromos(list);
+        showToast('Promoción eliminada');
+        renderMasivo();
+      });
+    });
+  }
+
+  const promoSelect = document.getElementById('masivo-promo-select');
+  if(promoSelect){
+    const prevVal = promoSelect.value;
+    promoSelect.innerHTML = promos.length
+      ? promos.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')
+      : `<option value="">— crea una promoción primero —</option>`;
+    if(promos.some(p=>p.id===prevVal)) promoSelect.value = prevVal;
+  }
+
+  const searchEl = document.getElementById('masivo-search');
+  const searchTerm = (searchEl ? searchEl.value : '').toLowerCase();
+  const filtered = contacts.filter(c=> !searchTerm || c.name.toLowerCase().includes(searchTerm) || c.phone.includes(searchTerm));
+
+  const contactsEl = document.getElementById('masivoContacts');
+  if(contactsEl){
+    contactsEl.innerHTML = filtered.length ? filtered.map(c=>{
+      const sentToday = c.lastSentAt && (new Date(c.lastSentAt).toDateString() === new Date().toDateString());
+      return `
+        <div style="padding:12px 14px; background:var(--bg-panel); border:1px solid var(--line); border-radius:12px; margin-bottom:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+            <div style="min-width:0;">
+              <div style="font-weight:700; font-size:13px;">${c.name}</div>
+              <div style="font-size:11px; color:var(--ink-faint);">${c.phone}${sentToday ? ' · ✅ enviado hoy' : ''}</div>
+            </div>
+            <button type="button" class="masivo-send-btn" data-id="${c.id}" style="font-size:12px; padding:7px 14px; border-radius:8px; background:var(--accent); color:#0b1220; border:none; font-weight:800; white-space:nowrap; flex-shrink:0;">💬 Enviar</button>
+          </div>
+          <input type="text" class="masivo-note-input" data-id="${c.id}" value="${(c.notes||'').replace(/"/g,'&quot;')}" placeholder="Nota sobre este cliente..." style="width:100%; margin-top:8px; font-size:12px; padding:6px 8px; border-radius:6px; border:1px solid var(--line); background:var(--bg-card); color:var(--ink); box-sizing:border-box;">
+        </div>
+      `;
+    }).join('') : `<div class="insight-bar">${searchTerm ? 'Sin resultados.' : 'Aún no tienes contactos — impórtalos arriba.'}</div>`;
+
+    contactsEl.querySelectorAll('.masivo-send-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=> sendMasivoTo(btn.dataset.id));
+    });
+    contactsEl.querySelectorAll('.masivo-note-input').forEach(inp=>{
+      inp.addEventListener('change', ()=>{
+        const list = loadMasivoContacts();
+        const c = list.find(x=>x.id===inp.dataset.id);
+        if(c){ c.notes = inp.value; saveMasivoContacts(list); }
+      });
+    });
+  }
+
+  const log = loadMasivoLog();
+  const oneHourAgo = Date.now() - 60*60*1000;
+  const recentSends = log.filter(l=>l.ts > oneHourAgo).length;
+  const pauseEl = document.getElementById('masivoPauseNote');
+  if(pauseEl){
+    pauseEl.innerHTML = (recentSends>0 && recentSends % 15 === 0)
+      ? `<div class="insight-bar" style="border-color:var(--acc); color:var(--acc);">⏸️ Llevas ${recentSends} envíos en la última hora — te recomendamos pausar unos minutos para evitar que WhatsApp bloquee el número.</div>`
+      : '';
+  }
+}
+
+function sendMasivoTo(contactId){
+  const contacts = loadMasivoContacts();
+  const contact = contacts.find(c=>c.id===contactId);
+  if(!contact){ showToast('Contacto no encontrado', true); return; }
+
+  const promoSelect = document.getElementById('masivo-promo-select');
+  const promos = loadMasivoPromos();
+  const promo = promos.find(p=>p.id===promoSelect.value);
+  if(!promo){ showToast('Elige o crea una promoción primero', true); return; }
+
+  const message = promo.message.replace(/\{nombre\}/gi, contact.name.split(' ')[0]);
+  window.open(`https://wa.me/${contact.phone}?text=${encodeURIComponent(message)}`, '_blank');
+
+  contact.lastSentAt = Date.now();
+  contact.lastPromo = promo.name;
+  saveMasivoContacts(contacts);
+
+  const log = loadMasivoLog();
+  log.unshift({ts: Date.now(), contactId: contact.id, contactName: contact.name, phone: contact.phone, promoName: promo.name});
+  saveMasivoLog(log);
+
+  renderMasivo();
+}
+
+function undoLastMasivoSend(){
+  const log = loadMasivoLog();
+  if(log.length===0){ showToast('No hay envíos para deshacer', true); return; }
+  const last = log.shift();
+  saveMasivoLog(log);
+
+  const contacts = loadMasivoContacts();
+  const contact = contacts.find(c=>c.id===last.contactId);
+  if(contact){
+    const prevForContact = log.find(l=>l.contactId===contact.id);
+    contact.lastSentAt = prevForContact ? prevForContact.ts : null;
+    contact.lastPromo = prevForContact ? prevForContact.promoName : '';
+    saveMasivoContacts(contacts);
+  }
+  showToast(`Deshecho: envío a ${last.contactName}`);
+  renderMasivo();
+}
+
+function exportMasivoToExcel(){
+  const contacts = loadMasivoContacts();
+  if(contacts.length===0){ showToast('No hay contactos para exportar', true); return; }
+  const rows = contacts.map(c=>({
+    Nombre: c.name,
+    Telefono: c.phone,
+    Notas: c.notes||'',
+    'Último envío': c.lastSentAt ? new Date(c.lastSentAt).toLocaleString('es-MX') : '',
+    'Última promoción': c.lastPromo||''
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Contactos');
+  XLSX.writeFile(wb, `masivo-contactos-${fmtDate(new Date())}.xlsx`);
+  showToast('Excel descargado ✓');
 }
 
 function renderCierre(){
@@ -2969,6 +3235,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     if(btn.dataset.view==='mes'){ mesViewAnchor = new Date(currentDate); renderMes(); }
     if(btn.dataset.view==='cierre'){ renderCierre(); }
     if(btn.dataset.view==='inventario'){ renderInventario(); }
+    if(btn.dataset.view==='masivo'){ renderMasivo(); }
   });
 });
 
@@ -3615,24 +3882,29 @@ document.getElementById('reportCopyBtn').addEventListener('click', ()=>{
 document.getElementById('reporteSemanaBtn').addEventListener('click', ()=> showReportModal(generarReporteSemanal()));
 document.getElementById('reporteMesBtn').addEventListener('click', ()=> showReportModal(generarReporteMensual()));
 
-document.getElementById('invAddBtn').addEventListener('click', ()=>{
-  const name = document.getElementById('inv-new-name').value.trim();
-  if(!name){ showToast('Ponle un nombre al producto', true); return; }
-  const type = document.getElementById('inv-new-type').value;
-  const sku = document.getElementById('inv-new-sku').value.trim();
-  const brand = document.getElementById('inv-new-brand').value.trim();
-  const stock = Number(document.getElementById('inv-new-stock').value)||0;
-  const list = loadInventory();
-  list.push({id: 'p_'+Date.now(), name, category:type, sku, brand, stock});
-  const ok = saveInventory(list);
-  document.getElementById('inv-new-name').value = '';
-  document.getElementById('inv-new-sku').value = '';
-  document.getElementById('inv-new-brand').value = '';
-  document.getElementById('inv-new-stock').value = '0';
-  showToast(ok ? 'Producto agregado ✓' : 'No se pudo guardar', !ok);
-  renderInventario();
-});
 document.getElementById('inv-search').addEventListener('input', ()=> renderInventario());
+
+document.getElementById('masivo-import-file').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(file) importMasivoContactsFromExcel(file);
+  e.target.value = '';
+});
+document.getElementById('masivo-search').addEventListener('input', ()=> renderMasivo());
+document.getElementById('masivo-promo-select').addEventListener('change', ()=> renderMasivo());
+document.getElementById('promoAddBtn').addEventListener('click', ()=>{
+  const name = document.getElementById('promo-new-name').value.trim();
+  const msg = document.getElementById('promo-new-msg').value.trim();
+  if(!name || !msg){ showToast('Ponle nombre y mensaje a la promoción', true); return; }
+  const list = loadMasivoPromos();
+  list.push({id:'promo_'+Date.now(), name, message: msg});
+  const ok = saveMasivoPromos(list);
+  document.getElementById('promo-new-name').value = '';
+  document.getElementById('promo-new-msg').value = '';
+  showToast(ok ? 'Promoción guardada ✓' : 'No se pudo guardar', !ok);
+  renderMasivo();
+});
+document.getElementById('masivoUndoBtn').addEventListener('click', undoLastMasivoSend);
+document.getElementById('masivoExportBtn').addEventListener('click', exportMasivoToExcel);
 document.getElementById('inv-import-file').addEventListener('change', (e)=>{
   const file = e.target.files[0];
   if(file) importInventoryFromExcel(file);
