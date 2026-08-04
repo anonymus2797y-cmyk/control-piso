@@ -4,54 +4,57 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Control de Piso · Equipo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root, [data-theme="dark"]{
-    --bg: #0b1220;
-    --bg-panel: #111a2c;
-    --bg-card: #14203a;
-    --line: #223151;
-    --ink: #e8edf7;
-    --ink-dim: #8a97b3;
-    --ink-faint: #5c6a89;
-    --accent: #ff8a3d;
-    --accent-dim: #ff8a3d33;
-    --postpago: #4f8cff;
-    --renov: #38c98d;
-    --prepago: #b57bff;
-    --seguros: #37b6c9;
-    --acc: #ffb238;
-    --bad: #ef5a6f;
-    --radius: 12px;
+    --bg: #0a1220;
+    --bg-panel: #121c2e;
+    --bg-card: #182642;
+    --line: #22334f;
+    --ink: #eef3f8;
+    --ink-dim: #90a4ba;
+    --ink-faint: #5f7288;
+    --accent: #00A8E0;
+    --accent-dim: #00A8E026;
+    --postpago: #00A8E0;
+    --renov: #22c55e;
+    --prepago: #a78bfa;
+    --seguros: #22d3ee;
+    --acc: #fbbf24;
+    --bad: #fb5568;
+    --radius: 16px;
     --shadow: none;
     --body-bg:
-      radial-gradient(1200px 600px at 100% -10%, #16264a 0%, transparent 60%),
-      radial-gradient(900px 500px at -10% 110%, #1a1030 0%, transparent 55%),
-      #0b1220;
+      radial-gradient(1200px 600px at 100% -10%, #10305a 0%, transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, #0d1f3d 0%, transparent 55%),
+      #0a1220;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
   [data-theme="light"]{
-    --bg: #f3f5fa;
+    --bg: #f2f6fa;
     --bg-panel: #ffffff;
-    --bg-card: #eef1f7;
-    --line: #dde3ef;
-    --ink: #1a2233;
-    --ink-dim: #5b6780;
-    --ink-faint: #8792a8;
-    --accent: #ec6f2e;
-    --accent-dim: #ec6f2e22;
-    --postpago: #2f6fe0;
-    --renov: #1ea877;
-    --prepago: #8b4fe0;
-    --seguros: #1a94a8;
+    --bg-card: #f0f5f9;
+    --line: #dce6ee;
+    --ink: #0d1b2a;
+    --ink-dim: #5b6b7f;
+    --ink-faint: #8a99ab;
+    --accent: #0090c4;
+    --accent-dim: #0090c41f;
+    --postpago: #0090c4;
+    --renov: #17a862;
+    --prepago: #7c5ce0;
+    --seguros: #0d94a8;
     --acc: #d98a10;
-    --bad: #d8324a;
-    --shadow: 0 1px 3px rgba(20,30,60,.06);
+    --bad: #e0384f;
+    --shadow: 0 1px 3px rgba(20,40,70,.07);
     --body-bg:
-      radial-gradient(1100px 550px at 100% -10%, #e7edfb 0%, transparent 60%),
-      radial-gradient(800px 450px at -10% 110%, #f2e9fb 0%, transparent 55%),
-      #f3f5fa;
+      radial-gradient(1100px 550px at 100% -10%, #e3f1fa 0%, transparent 60%),
+      radial-gradient(800px 450px at -10% 110%, #eef4fb 0%, transparent 55%),
+      #f2f6fa;
   }
   *{box-sizing:border-box;}
+  h1, h2, h3, .brand h1, .section-title{ font-family:'Manrope', 'Inter', sans-serif; }
   body{
     margin:0;
     background: var(--body-bg);
@@ -71,14 +74,19 @@
     display:flex; align-items:center; justify-content:space-between; gap:8px;
     flex-wrap:wrap;
   }
-  .brand{display:flex; align-items:center; gap:8px;}
+  .brand{display:flex; align-items:center; gap:10px;}
   .brand .mark{
-    width:28px;height:28px;border-radius:8px;
-    background:linear-gradient(135deg, var(--accent), #ff5f7e);
-    display:flex;align-items:center;justify-content:center;
-    font-weight:800; font-size:13px; color:#0b1220; flex:none;
+    width:30px; height:30px; border-radius:9px;
+    background:var(--bg-card); border:1px solid var(--line);
+    display:flex; align-items:flex-end; justify-content:center; gap:2px;
+    padding:6px 7px 5px; flex:none;
   }
-  .brand h1{font-size:13.5px; margin:0; font-weight:700; letter-spacing:.2px;}
+  .brand .mark i{ width:3px; border-radius:1.5px; background:var(--accent); display:block; }
+  .brand .mark i:nth-child(1){height:5px;}
+  .brand .mark i:nth-child(2){height:9px;}
+  .brand .mark i:nth-child(3){height:13px;}
+  .brand .mark i:nth-child(4){height:17px;}
+  .brand h1{font-size:14px; margin:0; font-weight:800; letter-spacing:.1px;}
   .brand span{display:block; font-size:10px; color:var(--ink-dim); font-weight:500;}
 
   .header-controls{display:flex; align-items:center; gap:6px;}
@@ -101,15 +109,15 @@
   .theme-toggle:hover{border-color:var(--accent); color:var(--accent);}
 
   nav.tabs{
-    display:flex; gap:4px; padding:8px 12px 0; max-width:1180px; margin:0 auto;
+    display:flex; gap:5px; padding:10px 12px 8px; max-width:1180px; margin:0 auto;
     overflow-x:auto;
   }
   nav.tabs button{
-    background:transparent; border:none; color:var(--ink-dim);
-    padding:7px 11px; border-radius:8px 8px 0 0; font-size:12.5px; font-weight:600;
-    cursor:pointer; border-bottom:2px solid transparent; white-space:nowrap;
+    background:var(--bg-card); border:1px solid var(--line); color:var(--ink-dim);
+    padding:8px 13px; border-radius:11px; font-size:12.5px; font-weight:700;
+    cursor:pointer; white-space:nowrap;
   }
-  nav.tabs button.active{color:var(--ink); border-bottom:2px solid var(--accent); background:var(--bg-panel);}
+  nav.tabs button.active{color:#fff; border-color:var(--accent); background:var(--accent);}
 
   main{max-width:1180px; margin:0 auto; padding:12px;}
   .view{display:none;}
@@ -240,13 +248,13 @@
   .citas-row .box input:focus{outline:none;}
 
   .save-btn{
-    width:100%; margin-top:10px; padding:8px; border-radius:8px; border:1px solid var(--line);
-    background:var(--bg-card); color:var(--ink); font-weight:700; font-size:12px; cursor:pointer;
+    width:100%; margin-top:10px; padding:11px; border-radius:13px; border:none;
+    background:var(--accent); color:#fff; font-weight:700; font-size:13px; cursor:pointer;
     display:flex; align-items:center; justify-content:center; gap:6px; transition:all .15s ease;
   }
-  .save-btn:hover{border-color:var(--accent); color:var(--accent);}
-  .save-btn.saved{border-color:var(--renov); color:var(--renov);}
-  .save-btn.error{border-color:var(--bad); color:var(--bad);}
+  .save-btn:hover{opacity:.92;}
+  .save-btn.saved{background:var(--renov); color:#fff;}
+  .save-btn.error{background:var(--bad); color:#fff;}
   .autosave-note{font-size:10px; color:var(--ink-faint); text-align:center; margin-top:5px;}
 
   .podium{background:var(--bg-panel); border:1px solid var(--line); border-radius:var(--radius); padding:8px 10px; box-shadow:var(--shadow); margin-bottom:4px;}
@@ -371,7 +379,12 @@
 <div id="loginOverlay" style="position:fixed; inset:0; z-index:200; background:var(--bg); display:flex; align-items:center; justify-content:center; padding:20px;">
   <div style="max-width:340px; width:100%; background:var(--bg-panel); border:1px solid var(--line); border-radius:16px; padding:26px;">
     <div style="text-align:center; margin-bottom:20px;">
-      <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#ff5f7e);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:#0b1220;margin:0 auto 10px;">P</div>
+      <div style="width:52px; height:52px; border-radius:14px; background:var(--bg-card); border:1px solid var(--line); display:flex; align-items:flex-end; justify-content:center; gap:3px; padding:10px 11px 8px; margin:0 auto 12px;">
+        <i style="width:5px; height:8px; border-radius:2.5px; background:var(--accent); display:block;"></i>
+        <i style="width:5px; height:15px; border-radius:2.5px; background:var(--accent); display:block;"></i>
+        <i style="width:5px; height:22px; border-radius:2.5px; background:var(--accent); display:block;"></i>
+        <i style="width:5px; height:29px; border-radius:2.5px; background:var(--accent); display:block;"></i>
+      </div>
       <div style="font-weight:800; font-size:16px;">Control de Piso</div>
       <div style="font-size:12px; color:var(--ink-dim); margin-top:2px;">Inicia sesión para continuar</div>
     </div>
@@ -391,7 +404,7 @@
 
 <header class="top">
   <div class="brand">
-    <div class="mark">P</div>
+    <div class="mark"><i></i><i></i><i></i><i></i></div>
     <div>
       <h1>Control de Piso</h1>
       <span>Alma · Denisse · Godoy <span style="opacity:.5;" id="versionTag"></span></span>
@@ -749,7 +762,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 57;
+const APP_VERSION = 58;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -1516,7 +1529,7 @@ function renderCards(){
       : `${total} ventas · sin meta hoy (${statusInfo.label})`;
 
     card.innerHTML = `
-      <div class="topline" id="topline-${ex.id}" style="background:${isMvp?'linear-gradient(90deg,var(--accent),#ff5f7e)':'var(--line)'}"></div>
+      <div class="topline" id="topline-${ex.id}" style="background:${isMvp?'linear-gradient(90deg,var(--accent),var(--seguros))':'var(--line)'}"></div>
       <div class="crown" id="crown-${ex.id}">${isMvp ? '★ Mejor del día' : ''}</div>
       <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
         <div style="width:44px;height:44px;border-radius:50%;background:conic-gradient(${ringColor} ${Math.min(pct,100)}%, var(--line) ${Math.min(pct,100)}% 100%); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
@@ -1629,7 +1642,7 @@ function updateCardProgress(){
     if(cardEl) cardEl.classList.toggle('mvp', isMvp);
 
     const toplineEl = document.getElementById(`topline-${ex.id}`);
-    if(toplineEl) toplineEl.style.background = isMvp ? 'linear-gradient(90deg,var(--accent),#ff5f7e)' : 'var(--line)';
+    if(toplineEl) toplineEl.style.background = isMvp ? 'linear-gradient(90deg,var(--accent),var(--seguros))' : 'var(--line)';
 
     const crownEl = document.getElementById(`crown-${ex.id}`);
     if(crownEl) crownEl.textContent = isMvp ? '★ Mejor del día' : '';
