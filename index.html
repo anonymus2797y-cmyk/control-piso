@@ -18,6 +18,7 @@
     --accent: #00A8E0;
     --accent-dim: #00A8E026;
     --postpago: #00A8E0;
+    --postpago2: #6366f1;
     --renov: #22c55e;
     --prepago: #a78bfa;
     --seguros: #22d3ee;
@@ -42,6 +43,7 @@
     --accent: #0090c4;
     --accent-dim: #0090c41f;
     --postpago: #0090c4;
+    --postpago2: #5457c9;
     --renov: #17a862;
     --prepago: #7c5ce0;
     --seguros: #0d94a8;
@@ -165,6 +167,7 @@
   .badge80.hit{color:var(--renov);}
   .proj-line{font-size:9.5px; font-weight:700; margin-top:2px;}
   .kpi.postpago .val{color:var(--postpago);}
+  .kpi.postpago2 .val{color:var(--postpago2);}
   .kpi.renov .val{color:var(--renov);}
   .kpi.prepago .val{color:var(--prepago);}
   .kpi.seguros .val{color:var(--seguros);}
@@ -187,7 +190,7 @@
   .metric-row:last-of-type{border-bottom:none;}
   .metric-row label{color:var(--ink-dim); display:flex; align-items:center; gap:5px; font-weight:500;}
   .dot{width:7px;height:7px;border-radius:50%; flex:none;}
-  .dot.postpago{background:var(--postpago);} .dot.renov{background:var(--renov);}
+  .dot.postpago{background:var(--postpago);} .dot.postpago2{background:var(--postpago2);} .dot.renov{background:var(--renov);}
   .dot.prepago{background:var(--prepago);} .dot.seguros{background:var(--seguros);} .dot.acc{background:var(--acc);}
   .metric-row input{
     width:46px; text-align:center; background:var(--bg-card); border:1px solid var(--line);
@@ -493,7 +496,7 @@
       <button class="navbtn" id="nextWeek">›</button>
     </div>
     <div class="kpi-row kpi-row--5" id="weekKpiRow"></div>
-    <div class="section-title">🏆 Ranking de postpagos — semana</div>
+    <div class="section-title">🏆 Ranking de Postpago Equipo — semana</div>
     <div class="podium" id="weekPodium"></div>
     <div class="section-title">Citas y cierres — semana</div>
     <div class="kpi-row kpi-row--4" id="weekCitasRow"></div>
@@ -516,7 +519,7 @@
       <button class="navbtn" id="nextMonth">›</button>
     </div>
     <div class="kpi-row kpi-row--5" id="monthKpiRow"></div>
-    <div class="section-title">🏆 Podio de postpagos — mes</div>
+    <div class="section-title">🏆 Podio de Postpago Equipo — mes</div>
     <div class="podium" id="monthPodium"></div>
     <div class="section-title">Citas y cierres — mes</div>
     <div class="kpi-row kpi-row--4" id="monthCitasRow"></div>
@@ -568,7 +571,8 @@
           <button type="button" class="navbtn" id="cuotaWeekNext">›</button>
         </div>
       </div>
-      <div class="row"><label><span class="dot postpago"></span>Postpago</label><input type="number" id="week-postpago" min="0"></div>
+      <div class="row"><label><span class="dot postpago"></span>Postpago Equipo</label><input type="number" id="week-postpago" min="0"></div>
+      <div class="row"><label><span class="dot postpago2"></span>Postpago Servicio</label><input type="number" id="week-postpago_servicio" min="0"></div>
       <div class="row"><label><span class="dot renov"></span>Renovación</label><input type="number" id="week-renov" min="0"></div>
       <div class="row"><label><span class="dot acc"></span>Accesorios</label><input type="number" id="week-acc" min="0"></div>
       <div class="row"><label><span class="dot seguros"></span>Seguros</label><input type="number" id="week-seguros" min="0"></div>
@@ -586,7 +590,8 @@
           <button type="button" class="navbtn" id="cuotaMonthNext">›</button>
         </div>
       </div>
-      <div class="row"><label><span class="dot postpago"></span>Postpago</label><input type="number" id="cuota-postpago" min="0"></div>
+      <div class="row"><label><span class="dot postpago"></span>Postpago Equipo</label><input type="number" id="cuota-postpago" min="0"></div>
+      <div class="row"><label><span class="dot postpago2"></span>Postpago Servicio</label><input type="number" id="cuota-postpago_servicio" min="0"></div>
       <div class="row"><label><span class="dot renov"></span>Renovación</label><input type="number" id="cuota-renov" min="0"></div>
       <div class="row"><label><span class="dot acc"></span>Accesorios</label><input type="number" id="cuota-acc" min="0"></div>
       <div class="row"><label><span class="dot seguros"></span>Seguros</label><input type="number" id="cuota-seguros" min="0"></div>
@@ -596,7 +601,8 @@
 
     <div class="section-title">💰 Comisión por venta <span style="color:var(--ink-faint); font-weight:600; text-transform:none;">— opcional, para el reporte de cierre</span></div>
     <div class="goals-form">
-      <div class="row"><label><span class="dot postpago"></span>Postpago</label><input type="number" id="comm-postpago" min="0" placeholder="$ por venta"></div>
+      <div class="row"><label><span class="dot postpago"></span>Postpago Equipo</label><input type="number" id="comm-postpago" min="0" placeholder="$ por venta"></div>
+      <div class="row"><label><span class="dot postpago2"></span>Postpago Servicio</label><input type="number" id="comm-postpago_servicio" min="0" placeholder="$ por venta"></div>
       <div class="row"><label><span class="dot renov"></span>Renovación</label><input type="number" id="comm-renov" min="0" placeholder="$ por venta"></div>
       <div class="row"><label><span class="dot acc"></span>Accesorios</label><input type="number" id="comm-acc" min="0" placeholder="$ por venta"></div>
       <div class="row"><label><span class="dot seguros"></span>Seguros</label><input type="number" id="comm-seguros" min="0" placeholder="$ por venta"></div>
@@ -685,7 +691,8 @@
       <div class="row">
         <label>🏷️ Categoría de esta promo</label>
         <select id="masivo-category" style="flex:1;">
-          <option value="postpago">Postpago</option>
+          <option value="postpago">Postpago Equipo</option>
+          <option value="postpago_servicio">Postpago Servicio</option>
           <option value="renov">Renovación</option>
           <option value="acc">Accesorios</option>
           <option value="seguros">Seguros</option>
@@ -795,7 +802,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 59;
+const APP_VERSION = 60;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -803,7 +810,8 @@ const EXECS = [
   {id:'godoy', name:'Jesús Godoy'}
 ];
 const CATS = [
-  {id:'postpago', label:'Postpago', cls:'postpago', emoji:'📱'},
+  {id:'postpago', label:'Postpago Equipo', cls:'postpago', emoji:'📱'},
+  {id:'postpago_servicio', label:'Postpago Servicio', cls:'postpago2', emoji:'📶'},
   {id:'renov', label:'Renovación', cls:'renov', emoji:'♻️'},
   {id:'acc', label:'Accesorios', cls:'acc', emoji:'🎧'},
   {id:'seguros', label:'Seguros', cls:'seguros', emoji:'🛡️'},
@@ -878,7 +886,7 @@ let currentWeekAnchor = new Date();
 let mesViewAnchor = new Date();
 let cuotaMonthKey = monthKeyFromDate(new Date());
 let cuotaWeekKey = getISOWeekString(new Date());
-let currentDayCommit = {postpago:0, renov:0, prepago:0, seguros:0, acc:0};
+let currentDayCommit = {postpago:0, postpago_servicio:0, renov:0, prepago:0, seguros:0, acc:0};
 let dayData = {}; // cache for currently loaded day: {execId: {postpago,renov,prepago,seguros,acc,agendadas,efectivas,cotizPiso,cotizCita}}
 
 function fmtDate(d){
@@ -886,7 +894,7 @@ function fmtDate(d){
   return `${y}-${m}-${day}`;
 }
 function parseDate(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y, m-1, d); }
-function emptyExec(){ return {postpago:0, renov:0, prepago:0, seguros:0, acc:0, agendadas:0, efectivas:0, cotizPiso:0, cotizCita:0, cerradoPiso:0, cerradoCita:0, llamadas:0, mensajes:0, citasManana:0}; }
+function emptyExec(){ return {postpago:0, postpago_servicio:0, renov:0, prepago:0, seguros:0, acc:0, agendadas:0, efectivas:0, cotizPiso:0, cotizCita:0, cerradoPiso:0, cerradoCita:0, llamadas:0, mensajes:0, citasManana:0}; }
 function monthKeyFromDate(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
 
 // ISO 8601 week number (matches the "Semana XX del año" convention used on the shop floor).
@@ -1019,9 +1027,9 @@ function loadWeekCuota(weekKey){
   const raw = storageGet(`cp_week_${weekKey}`);
   if(raw){ try{ return JSON.parse(raw); }catch(e){} }
   if(weekKey === '2026-W28'){
-    return {postpago:12, renov:8, prepago:5, seguros:11, acc:7};
+    return {postpago:12, postpago_servicio:8, renov:8, prepago:5, seguros:11, acc:7};
   }
-  return {postpago:0, renov:0, prepago:0, seguros:0, acc:0};
+  return {postpago:0, postpago_servicio:0, renov:0, prepago:0, seguros:0, acc:0};
 }
 function saveWeekCuota(weekKey, values){
   return storageSet(`cp_week_${weekKey}`, JSON.stringify(values));
@@ -1055,6 +1063,7 @@ function populateWeekCuotaForm(){
   const monday = weekKeyToMonday(cuotaWeekKey);
   document.getElementById('cuotaWeekLabel').textContent = `Sem ${isoWeekNumber(monday)} · ${monday.getFullYear()}`;
   document.getElementById('week-postpago').value = c.postpago;
+  document.getElementById('week-postpago_servicio').value = c.postpago_servicio||0;
   document.getElementById('week-renov').value = c.renov;
   document.getElementById('week-prepago').value = c.prepago;
   document.getElementById('week-seguros').value = c.seguros;
@@ -1063,6 +1072,7 @@ function populateWeekCuotaForm(){
 function saveWeekCuotaForm(){
   const values = {
     postpago: Number(document.getElementById('week-postpago').value)||0,
+    postpago_servicio: Number(document.getElementById('week-postpago_servicio').value)||0,
     renov: Number(document.getElementById('week-renov').value)||0,
     prepago: Number(document.getElementById('week-prepago').value)||0,
     seguros: Number(document.getElementById('week-seguros').value)||0,
@@ -1203,9 +1213,9 @@ function loadCuota(monthKey){
   const raw = storageGet(`cp_month_${monthKey}`);
   if(raw){ try{ return JSON.parse(raw); }catch(e){} }
   if(monthKey === '2026-07'){
-    return {postpago:55, renov:37, prepago:25, seguros:53, acc:32};
+    return {postpago:55, postpago_servicio:37, renov:37, prepago:25, seguros:53, acc:32};
   }
-  return {postpago:0, renov:0, prepago:0, seguros:0, acc:0};
+  return {postpago:0, postpago_servicio:0, renov:0, prepago:0, seguros:0, acc:0};
 }
 function saveCuota(monthKey, values){
   return storageSet(`cp_month_${monthKey}`, JSON.stringify(values));
@@ -1216,6 +1226,7 @@ function populateCuotaForm(){
   document.getElementById('cuotaMonthLabel').textContent =
     new Date(y, m-1, 1).toLocaleDateString('es-MX', {month:'long', year:'numeric'});
   document.getElementById('cuota-postpago').value = c.postpago;
+  document.getElementById('cuota-postpago_servicio').value = c.postpago_servicio||0;
   document.getElementById('cuota-renov').value = c.renov;
   document.getElementById('cuota-prepago').value = c.prepago;
   document.getElementById('cuota-seguros').value = c.seguros;
@@ -1224,6 +1235,7 @@ function populateCuotaForm(){
 function saveCuotaForm(){
   const values = {
     postpago: Number(document.getElementById('cuota-postpago').value)||0,
+    postpago_servicio: Number(document.getElementById('cuota-postpago_servicio').value)||0,
     renov: Number(document.getElementById('cuota-renov').value)||0,
     prepago: Number(document.getElementById('cuota-prepago').value)||0,
     seguros: Number(document.getElementById('cuota-seguros').value)||0,
@@ -1237,7 +1249,7 @@ function saveCuotaForm(){
 function loadCommissionRates(){
   const raw = storageGet('cp_commission_rates');
   if(raw){ try{ return JSON.parse(raw); }catch(e){} }
-  return {postpago:0, renov:0, prepago:0, seguros:0, acc:0};
+  return {postpago:0, postpago_servicio:0, renov:0, prepago:0, seguros:0, acc:0};
 }
 function saveCommissionRates(values){
   return storageSet('cp_commission_rates', JSON.stringify(values));
@@ -1373,7 +1385,7 @@ function saveDay(dateStr, fullDayData){
 }
 
 function totalFor(exec){
-  return exec.postpago + exec.renov + exec.prepago + exec.seguros + exec.acc;
+  return CATS.reduce((sum, c)=> sum + (exec[c.id]||0), 0);
 }
 // A week's quota is the STORE total (all 3 execs combined).
 // Each exec's individual weekly target is that number split three ways.
@@ -1403,7 +1415,7 @@ function cumplimientoPct(exec, commit){
 }
 
 function renderKPIs(){
-  const totals = {postpago:0, renov:0, prepago:0, seguros:0, acc:0};
+  const totals = {postpago:0, postpago_servicio:0, renov:0, prepago:0, seguros:0, acc:0};
   EXECS.forEach(ex=>{
     const d = dayData[ex.id];
     CATS.forEach(c=> totals[c.id]+=d[c.id]);
@@ -1781,7 +1793,7 @@ function getDashboardAlert(totals, commit){
   if(elapsedRaw >= 1) return null; // store already closed for the day
   const elapsed = elapsedRaw;
 
-  const PRIORITY_CAT_IDS = ['postpago', 'renov']; // Carlos's main focus categories
+  const PRIORITY_CAT_IDS = ['postpago', 'postpago_servicio', 'renov']; // Carlos's main focus categories
   const GRACE_MINUTES = 20; // don't flag "zero sales" in the first few minutes after opening
   const graceElapsed = GRACE_MINUTES / ((STORE_CLOSE-STORE_OPEN)*60);
 
@@ -1832,7 +1844,7 @@ function renderDashboardSummary(){
   if(!el) return;
 
   const commit = currentDayCommit;
-  const totals = {postpago:0, renov:0, prepago:0, seguros:0, acc:0};
+  const totals = {postpago:0, postpago_servicio:0, renov:0, prepago:0, seguros:0, acc:0};
   EXECS.forEach(ex=> CATS.forEach(c=> totals[c.id] += dayData[ex.id][c.id]||0));
   const totalSold = sumVals(totals);
   const totalCommit = sumVals(commit);
@@ -1991,7 +2003,7 @@ function renderSemana(){
   const weekCuota = loadWeekCuota(weekKey);
 
   // store-level totals for the whole week (all execs combined) per category
-  const storeTotals = {postpago:0, renov:0, prepago:0, seguros:0, acc:0};
+  const storeTotals = {postpago:0, postpago_servicio:0, renov:0, prepago:0, seguros:0, acc:0};
   EXECS.forEach(ex=>{
     weekData[ex.id].forEach(dayVals=>{
       CATS.forEach(c=> storeTotals[c.id] += dayVals[c.id]||0);
@@ -2088,7 +2100,8 @@ function computeMonthlyBadges(execTotals){
   }
   crownLeader('seguros', '🔥', 'Rey/Reina de Seguros');
   crownLeader('renov', '⚡', 'Maestro de Renovaciones');
-  crownLeader('postpago', '📱', 'Líder de Postpago');
+  crownLeader('postpago', '📱', 'Líder de Postpago Equipo');
+  crownLeader('postpago_servicio', '📶', 'Líder de Postpago Servicio');
   crownLeader('acc', '🎧', 'Maestro de Accesorios');
   crownLeader('prepago', '💳', 'Líder de Prepago');
 
@@ -2108,9 +2121,9 @@ function renderMes(){
   const monthKey = `${y}-${String(m+1).padStart(2,'0')}`;
   const daysInMonth = new Date(y, m+1, 0).getDate();
 
-  const totals = {postpago:0, renov:0, prepago:0, seguros:0, acc:0};
+  const totals = {postpago:0, postpago_servicio:0, renov:0, prepago:0, seguros:0, acc:0};
   const execTotals = {};
-  EXECS.forEach(ex=> execTotals[ex.id] = {postpago:0, renov:0, prepago:0, seguros:0, acc:0});
+  EXECS.forEach(ex=> execTotals[ex.id] = {postpago:0, postpago_servicio:0, renov:0, prepago:0, seguros:0, acc:0});
   const monthCitasSums = {agendadas:0, efectivas:0, cerradoPiso:0, cerradoCita:0};
   const execCerradoPisoMonth = {};
   const execCerradoCitaMonth = {};
@@ -2156,7 +2169,7 @@ function renderMes(){
       effectiveExecTotals[ex.id][c.id] = (ov !== undefined && ov !== null) ? ov : (execTotals[ex.id][c.id]||0);
     });
   });
-  const effectiveTotals = {postpago:0, renov:0, prepago:0, seguros:0, acc:0};
+  const effectiveTotals = {postpago:0, postpago_servicio:0, renov:0, prepago:0, seguros:0, acc:0};
   EXECS.forEach(ex=> CATS.forEach(c=> effectiveTotals[c.id] += effectiveExecTotals[ex.id][c.id]));
 
   renderStoreSummaryCards('monthKpiRow', effectiveTotals, cuota, lastDayToCount, daysInMonth);
@@ -2674,7 +2687,8 @@ function renderInventario(){
     const low = p.stock<=2;
     const sellControls = `
       <select class="inv-sell-cat" data-id="${p.id}" style="font-size:11px; padding:3px 6px; border-radius:6px;">
-        <option value="postpago">📱 Postpago</option>
+        <option value="postpago">📱 Postpago Equipo</option>
+        <option value="postpago_servicio">📶 Postpago Servicio</option>
         <option value="renov">♻️ Renovación</option>
       </select>
       ${role==='gerente' ? `
@@ -3146,7 +3160,7 @@ function renderCierre(){
     currentDate.toLocaleDateString('es-MX', {weekday:'long', day:'numeric', month:'long'});
 
   // ---- team totals for today ----
-  const totals = {postpago:0, renov:0, prepago:0, seguros:0, acc:0};
+  const totals = {postpago:0, postpago_servicio:0, renov:0, prepago:0, seguros:0, acc:0};
   let agendadasTotal=0, cotizTotal=0;
   EXECS.forEach(ex=>{
     const d = dayVals[ex.id];
@@ -3435,7 +3449,7 @@ document.getElementById('cuotaWeekNext').addEventListener('click', ()=>{
   cuotaWeekKey = shiftWeekKey(cuotaWeekKey, 1);
   populateWeekCuotaForm();
 });
-['week-postpago','week-renov','week-prepago','week-seguros','week-acc'].forEach(id=>{
+['week-postpago','week-postpago_servicio','week-renov','week-prepago','week-seguros','week-acc'].forEach(id=>{
   document.getElementById(id).addEventListener('change', saveWeekCuotaForm);
 });
 
@@ -3447,10 +3461,10 @@ document.getElementById('cuotaMonthNext').addEventListener('click', ()=>{
   cuotaMonthKey = shiftMonthKey(cuotaMonthKey, 1);
   populateCuotaForm();
 });
-['cuota-postpago','cuota-renov','cuota-prepago','cuota-seguros','cuota-acc'].forEach(id=>{
+['cuota-postpago','cuota-postpago_servicio','cuota-renov','cuota-prepago','cuota-seguros','cuota-acc'].forEach(id=>{
   document.getElementById(id).addEventListener('change', saveCuotaForm);
 });
-['comm-postpago','comm-renov','comm-acc','comm-seguros','comm-prepago'].forEach(id=>{
+['comm-postpago','comm-postpago_servicio','comm-renov','comm-acc','comm-seguros','comm-prepago'].forEach(id=>{
   document.getElementById(id).addEventListener('change', saveCommissionForm);
 });
 ['hire-alma','hire-denisse','hire-godoy'].forEach(id=>{
@@ -3512,7 +3526,7 @@ function addIaMessage(html, fromUser){
 }
 
 function iaMonthTotalsUpTo(year, monthIdx, uptoDay){
-  const totals = {postpago:0, renov:0, prepago:0, seguros:0, acc:0};
+  const totals = {postpago:0, postpago_servicio:0, renov:0, prepago:0, seguros:0, acc:0};
   for(let day=1; day<=uptoDay; day++){
     const dateStr = `${year}-${String(monthIdx+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const dv = loadDay(dateStr);
@@ -3526,7 +3540,7 @@ function iaPick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 function iaComoVamos(){
   const today = new Date();
   const dayVals = loadDay(fmtDate(today));
-  const dayTotals = {postpago:0, renov:0, prepago:0, seguros:0, acc:0};
+  const dayTotals = {postpago:0, postpago_servicio:0, renov:0, prepago:0, seguros:0, acc:0};
   EXECS.forEach(ex=> CATS.forEach(c=> dayTotals[c.id] += dayVals[ex.id][c.id]||0));
   const commit = loadDayCommit(fmtDate(today));
   const grandToday = sumVals(dayTotals), commitTotal = sumVals(commit);
@@ -3553,8 +3567,9 @@ function iaComoVamos(){
   const mood = pctDay>=100 ? '¡Van muy bien hoy! 💪' : pctDay>=60 ? 'Van en buen ritmo hoy.' : 'Hoy van algo atrasados todavía.';
   const opener = iaPick(['Aquí tienes el panorama 👀', 'Esto es lo que veo ahorita:', 'Checando los números...']);
   const postpagoMonthPct = pct1(monthTotals.postpago||0, cuotaMes.postpago||0);
+  const postpagoServMonthPct = pct1(monthTotals.postpago_servicio||0, cuotaMes.postpago_servicio||0);
   const renovMonthPct = pct1(monthTotals.renov||0, cuotaMes.renov||0);
-  return `${opener}<br>${mood} Llevan ${grandToday} de ${commitTotal} (${pctDay}%).<br>En la semana van en ${weekTotal} de ${weekCuotaTotal} (${pctWeek}%), y en el mes ${monthTotal} de ${cuotaMesTotal} (${pctMonth}%).<br><br>🎯 <b>Tus prioridades este mes:</b> Postpago ${postpagoMonthPct}%, Renovación ${renovMonthPct}%.`;
+  return `${opener}<br>${mood} Llevan ${grandToday} de ${commitTotal} (${pctDay}%).<br>En la semana van en ${weekTotal} de ${weekCuotaTotal} (${pctWeek}%), y en el mes ${monthTotal} de ${cuotaMesTotal} (${pctMonth}%).<br><br>🎯 <b>Tus prioridades este mes:</b> Postpago Equipo ${postpagoMonthPct}%, Postpago Servicio ${postpagoServMonthPct}%, Renovación ${renovMonthPct}%.`;
 }
 
 function iaExecEspecifico(execId){
@@ -3612,7 +3627,7 @@ function iaIndicadorAtrasado(){
 
   // Hoy
   const dayVals = loadDay(fmtDate(today));
-  const dayTotals = {postpago:0, renov:0, prepago:0, seguros:0, acc:0};
+  const dayTotals = {postpago:0, postpago_servicio:0, renov:0, prepago:0, seguros:0, acc:0};
   EXECS.forEach(ex=> CATS.forEach(c=> dayTotals[c.id] += dayVals[ex.id][c.id]||0));
   const commit = loadDayCommit(fmtDate(today));
   const dayAtrasados = CATS.filter(c=> (commit[c.id]||0)>0 && (dayTotals[c.id]||0) < (commit[c.id]||0)*0.6);
@@ -3620,7 +3635,7 @@ function iaIndicadorAtrasado(){
   // Semana (compara contra la parte proporcional de la cuota semanal que ya debió pasar)
   const monday = getMonday(today);
   const weekCuota = loadWeekCuota(getISOWeekString(monday));
-  const weekTotals = {postpago:0, renov:0, prepago:0, seguros:0, acc:0};
+  const weekTotals = {postpago:0, postpago_servicio:0, renov:0, prepago:0, seguros:0, acc:0};
   let daysElapsedWeek = 0;
   for(let i=0;i<7;i++){
     const d = new Date(monday); d.setDate(monday.getDate()+i);
@@ -3648,7 +3663,8 @@ function iaIndicadorAtrasado(){
   const fmtList = arr => arr.length ? arr.map(c=>`<b>${c.label}</b>`).join(', ') : 'ninguno ✅';
 
   const priorityBehind = [];
-  if(dayAtrasados.some(c=>c.id==='postpago') || weekAtrasados.some(c=>c.id==='postpago') || monthAtrasados.some(c=>c.id==='postpago')) priorityBehind.push('Postpago');
+  if(dayAtrasados.some(c=>c.id==='postpago') || weekAtrasados.some(c=>c.id==='postpago') || monthAtrasados.some(c=>c.id==='postpago')) priorityBehind.push('Postpago Equipo');
+  if(dayAtrasados.some(c=>c.id==='postpago_servicio') || weekAtrasados.some(c=>c.id==='postpago_servicio') || monthAtrasados.some(c=>c.id==='postpago_servicio')) priorityBehind.push('Postpago Servicio');
   if(dayAtrasados.some(c=>c.id==='renov') || weekAtrasados.some(c=>c.id==='renov') || monthAtrasados.some(c=>c.id==='renov')) priorityBehind.push('Renovación');
   const priorityNote = priorityBehind.length
     ? `⚠️ Atención: tu categoría prioritaria <b>${priorityBehind.join(' y ')}</b> está atrasada — dale seguimiento primero.<br><br>`
@@ -3825,7 +3841,7 @@ function iaQueFaltaPara80(){
   const today = new Date();
   const monday = getMonday(today);
   const weekCuota = loadWeekCuota(getISOWeekString(monday));
-  const weekTotals = {postpago:0, renov:0, acc:0, seguros:0, prepago:0};
+  const weekTotals = {postpago:0, postpago_servicio:0, renov:0, acc:0, seguros:0, prepago:0};
   for(let i=0;i<7;i++){
     const d = new Date(monday); d.setDate(monday.getDate()+i);
     if(d>today) break;
@@ -3868,7 +3884,7 @@ function generarReporteSemanal(){
   const weekCuota = loadWeekCuota(weekKey);
 
   const execTotals = {};
-  EXECS.forEach(ex=> execTotals[ex.id] = {postpago:0, renov:0, acc:0, seguros:0, prepago:0});
+  EXECS.forEach(ex=> execTotals[ex.id] = {postpago:0, postpago_servicio:0, renov:0, acc:0, seguros:0, prepago:0});
   for(let i=0;i<7;i++){
     const d = new Date(monday); d.setDate(monday.getDate()+i);
     if(d>today) break;
@@ -3899,7 +3915,7 @@ function generarReporteSemanal(){
   execSummaries.sort((a,b)=> b.postpago - a.postpago);
 
   const medals = ['🥇','🥈','🥉'];
-  let msg = `📊 ACTUALIZACIÓN DE VENTAS – SEMANA ${weekNum} (${formatRangeDates(monday, sunday)})\n🏆 ORDENADOS POR POSTPAGO\n\n━━━━━━━━━━━━━━\n\n`;
+  let msg = `📊 ACTUALIZACIÓN DE VENTAS – SEMANA ${weekNum} (${formatRangeDates(monday, sunday)})\n🏆 ORDENADOS POR POSTPAGO EQUIPO\n\n━━━━━━━━━━━━━━\n\n`;
   execSummaries.forEach((s,i)=>{
     msg += `${medals[i]||(i+1)+'.'} ${i+1}.º LUGAR — ${s.ex.name}\n\n`;
     msg += s.catLines.join('\n') + '\n\n';
@@ -3915,9 +3931,9 @@ function generarReporteSemanal(){
     msg += `${c.emoji} ${c.label} ${actual} de ${goal} ${icon}${goal>0?` (${pct}%)`:''}\n`;
   });
 
-  msg += `\n━━━━━━━━━━━━━━\n\n🏆 RESULTADO GENERAL (POSTPAGO)\n\n`;
+  msg += `\n━━━━━━━━━━━━━━\n\n🏆 RESULTADO GENERAL (POSTPAGO EQUIPO)\n\n`;
   execSummaries.forEach((s,i)=>{
-    msg += `${medals[i]||(i+1)+'.'} ${s.ex.name.split(' ')[0]} — ${s.postpago} postpago${s.postpago===1?'':'s'} (${s.totalVentas} ventas en total)\n`;
+    msg += `${medals[i]||(i+1)+'.'} ${s.ex.name.split(' ')[0]} — ${s.postpago} postpago equipo${s.postpago===1?'':'s'} (${s.totalVentas} ventas en total)\n`;
   });
   const grandVentas = sumVals(teamTotals);
   const grandObjetivo = sumVals(weekCuota);
@@ -3936,7 +3952,7 @@ function generarReporteMensual(){
   const hasCommission = CATS.some(c=> (commRates[c.id]||0) > 0);
 
   const execTotals = {};
-  EXECS.forEach(ex=> execTotals[ex.id] = {postpago:0, renov:0, acc:0, seguros:0, prepago:0});
+  EXECS.forEach(ex=> execTotals[ex.id] = {postpago:0, postpago_servicio:0, renov:0, acc:0, seguros:0, prepago:0});
   for(let day=1; day<=today.getDate(); day++){
     const dStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const dv = loadDay(dStr);
@@ -3987,10 +4003,10 @@ function generarReporteMensual(){
 
   const rankBy = [...execSummaries].sort((a,b)=> (b.raw.postpago||0) - (a.raw.postpago||0));
   const medals = ['🥇','🥈','🥉'];
-  msg += `🏆 RANKING DEL MES (POSTPAGO)\n\n`;
+  msg += `🏆 RANKING DEL MES (POSTPAGO EQUIPO)\n\n`;
   rankBy.forEach((s,i)=>{
     const extra = hasCommission ? ` · $${Math.round(s.comision).toLocaleString('es-MX')}` : '';
-    msg += `${medals[i]||(i+1)+'.'} ${s.ex.name.split(' ')[0]} — ${s.raw.postpago||0} postpago${(s.raw.postpago||0)===1?'':'s'}${extra}\n`;
+    msg += `${medals[i]||(i+1)+'.'} ${s.ex.name.split(' ')[0]} — ${s.raw.postpago||0} postpago equipo${(s.raw.postpago||0)===1?'':'s'}${extra}\n`;
   });
 
   const campeon = [...execSummaries].sort((a,b)=>{
@@ -4083,7 +4099,7 @@ document.getElementById('inv-bajio-store').addEventListener('change', ()=> rende
 
 function iaGenerarMensajeWhatsApp(){
   const dayVals = loadDay(fmtDate(new Date()));
-  const totals = {postpago:0, renov:0, prepago:0, seguros:0, acc:0};
+  const totals = {postpago:0, postpago_servicio:0, renov:0, prepago:0, seguros:0, acc:0};
   EXECS.forEach(ex=> CATS.forEach(c=> totals[c.id] += dayVals[ex.id][c.id]||0));
   const commit = loadDayCommit(fmtDate(new Date()));
   const grand = sumVals(totals), commitTotal = sumVals(commit);
