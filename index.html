@@ -70,11 +70,16 @@
     -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
     border-bottom:1px solid var(--line);
-    padding:10px 14px;
-    display:flex; align-items:center; justify-content:space-between; gap:8px;
-    flex-wrap:wrap;
+    padding:12px 14px;
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
   }
-  .brand{display:flex; align-items:center; gap:10px;}
+  .burger-btn{
+    width:38px; height:38px; border-radius:11px; flex:none; cursor:pointer;
+    background:var(--bg-card); border:1px solid var(--line);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+  }
+  .burger-btn div{width:16px; height:2px; background:var(--ink); border-radius:1px;}
+  .brand{display:flex; align-items:center; gap:10px; min-width:0;}
   .brand .mark{
     width:30px; height:30px; border-radius:9px;
     background:var(--bg-card); border:1px solid var(--line);
@@ -86,38 +91,56 @@
   .brand .mark i:nth-child(2){height:9px;}
   .brand .mark i:nth-child(3){height:13px;}
   .brand .mark i:nth-child(4){height:17px;}
-  .brand h1{font-size:14px; margin:0; font-weight:800; letter-spacing:.1px;}
-  .brand span{display:block; font-size:10px; color:var(--ink-dim); font-weight:500;}
+  .brand h1{font-size:15px; margin:0; font-weight:800; letter-spacing:.1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .brand span{display:block; font-size:10.5px; color:var(--ink-dim); font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 
-  .header-controls{display:flex; align-items:center; gap:6px;}
-  .datebar{display:flex; align-items:center; gap:6px;}
-  .datebar input[type=date]{
-    background:var(--bg-card); border:1px solid var(--line); color:var(--ink);
-    padding:6px 8px; border-radius:8px; font-size:12px;
-  }
-  .navbtn{
-    background:var(--bg-card); border:1px solid var(--line); color:var(--ink-dim);
-    width:28px;height:28px; border-radius:8px; cursor:pointer; font-size:13px;
-    display:flex; align-items:center; justify-content:center; flex:none;
-  }
-  .navbtn:hover{color:var(--ink); border-color:var(--accent);}
+  .header-controls{display:flex; align-items:center; gap:6px; flex:none;}
   .theme-toggle{
     background:var(--bg-card); border:1px solid var(--line); color:var(--ink-dim);
-    width:28px; height:28px; border-radius:8px; cursor:pointer; font-size:13px;
+    width:34px; height:34px; border-radius:10px; cursor:pointer; font-size:13px;
     display:flex; align-items:center; justify-content:center; flex:none;
   }
   .theme-toggle:hover{border-color:var(--accent); color:var(--accent);}
 
-  nav.tabs{
-    display:flex; gap:5px; padding:10px 12px 8px; max-width:1180px; margin:0 auto;
-    overflow-x:auto;
+  .daterow{
+    display:flex; justify-content:center; padding:9px 14px; border-bottom:1px solid var(--line);
+    background:var(--bg);
   }
-  nav.tabs button{
+  .datebar{display:flex; align-items:center; gap:6px;}
+  .datebar input[type=date]{
+    background:var(--bg-card); border:1px solid var(--line); color:var(--ink);
+    padding:7px 10px; border-radius:9px; font-size:12.5px; font-weight:600;
+  }
+  .navbtn{
     background:var(--bg-card); border:1px solid var(--line); color:var(--ink-dim);
-    padding:8px 13px; border-radius:11px; font-size:12.5px; font-weight:700;
-    cursor:pointer; white-space:nowrap;
+    width:30px;height:30px; border-radius:9px; cursor:pointer; font-size:13px;
+    display:flex; align-items:center; justify-content:center; flex:none;
   }
-  nav.tabs button.active{color:#fff; border-color:var(--accent); background:var(--accent);}
+  .navbtn:hover{color:var(--ink); border-color:var(--accent);}
+
+  .drawer-overlay{
+    position:fixed; inset:0; background:rgba(3,7,16,.55); z-index:99;
+    opacity:0; pointer-events:none; transition:opacity .2s ease;
+  }
+  .drawer-overlay.open{opacity:1; pointer-events:auto;}
+  nav.drawer{
+    position:fixed; top:0; left:0; bottom:0; width:250px; z-index:100;
+    background:var(--bg-panel); border-right:1px solid var(--line);
+    padding:18px 12px; overflow-y:auto;
+    transform:translateX(-100%); transition:transform .22s ease;
+  }
+  nav.drawer.open{transform:translateX(0);}
+  .drawer-brand{display:flex; align-items:center; gap:10px; padding:2px 8px 16px; border-bottom:1px solid var(--line); margin-bottom:10px;}
+  .drawer-brand .bname{font-family:'Manrope',sans-serif; font-weight:800; font-size:13.5px; color:var(--ink);}
+  .drawer-brand .bsub{font-size:10.5px; color:var(--ink-dim); margin-top:1px;}
+  .drawer-eyebrow{font-size:10px; font-weight:800; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.5px; padding:10px 10px 5px;}
+  .drawer-item{
+    display:flex; align-items:center; gap:10px; width:100%; text-align:left;
+    padding:11px 10px; border-radius:11px; margin-bottom:2px;
+    background:none; border:none; color:var(--ink-dim); font-size:13.5px; font-weight:700; cursor:pointer;
+  }
+  .drawer-item.active{background:var(--accent); color:#fff;}
+
 
   main{max-width:1180px; margin:0 auto; padding:12px;}
   .view{display:none;}
@@ -329,7 +352,6 @@
   @media (min-width: 900px){
     main{padding:26px;}
     header.top{padding:16px 26px;}
-    nav.tabs{padding:14px 26px 0;}
     .brand h1{font-size:16px;}
     .brand span{font-size:12px;}
     .brand .mark{width:34px; height:34px; font-size:15px;}
@@ -370,7 +392,6 @@
     .kpi-row.kpi-row--5{grid-template-columns:repeat(2,1fr);}
     .kpi-row.kpi-row--4{grid-template-columns:repeat(2,1fr);}
     .goals-form{padding:11px;}
-    nav.tabs button{padding:6px 8px; font-size:11.5px;}
   }
 </style>
 </head>
@@ -402,38 +423,50 @@
   </div>
 </div>
 
-<header class="top">
-  <div class="brand">
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<nav class="drawer" id="drawerNav">
+  <div class="drawer-brand">
     <div class="mark"><i></i><i></i><i></i><i></i></div>
     <div>
-      <h1>Control de Piso</h1>
-      <span>Alma · Denisse · Godoy <span style="opacity:.5;" id="versionTag"></span></span>
+      <div class="bname">Control de Piso</div>
+      <div class="bsub">Portal Lagos de Moreno</div>
+    </div>
+  </div>
+  <div class="drawer-eyebrow">Ventas</div>
+  <button class="tab-btn drawer-item active" data-view="hoy">📋 Hoy</button>
+  <button class="tab-btn drawer-item" data-view="semana">📅 Semana</button>
+  <button class="tab-btn drawer-item" data-view="mes">🗓️ Mes</button>
+  <button class="tab-btn drawer-item" data-view="cierre">🔒 Cierre</button>
+  <div class="drawer-eyebrow">Herramientas</div>
+  <button class="tab-btn drawer-item" data-view="ia">🤖 IA</button>
+  <button class="tab-btn drawer-item" data-view="metas">🎯 Metas</button>
+  <button class="tab-btn drawer-item" data-view="inventario">📦 Inventario</button>
+  <button class="tab-btn drawer-item" data-view="masivo">📲 Masivo</button>
+</nav>
+
+<header class="top">
+  <div class="brand">
+    <button class="burger-btn" id="burgerBtn" title="Menú"><div></div><div></div><div></div></button>
+    <div style="min-width:0;">
+      <h1 id="currentViewLabel">Hoy</h1>
+      <span>Portal Lagos de Moreno <span style="opacity:.5;" id="versionTag"></span></span>
     </div>
   </div>
   <div class="header-controls">
     <button class="theme-toggle" id="logoutBtn" title="Cerrar sesión">🚪</button>
     <button class="theme-toggle" id="themeToggle" title="Cambiar tema">🌙</button>
-    <div class="datebar">
-      <button class="navbtn" id="prevDay">‹</button>
-      <input type="date" id="datePicker">
-      <button class="navbtn" id="nextDay">›</button>
-    </div>
   </div>
 </header>
+<div class="daterow">
+  <div class="datebar">
+    <button class="navbtn" id="prevDay">‹</button>
+    <input type="date" id="datePicker">
+    <button class="navbtn" id="nextDay">›</button>
+  </div>
+</div>
 <div id="updateBanner" style="display:none; background:var(--accent); color:#0b1220; text-align:center; padding:9px 14px; font-size:12.5px; font-weight:700; cursor:pointer;">
   🔄 Hay una versión nueva de la app — toca aquí para actualizar
 </div>
-
-<nav class="tabs">
-  <button class="tab-btn active" data-view="hoy">Hoy</button>
-  <button class="tab-btn" data-view="semana">Semana</button>
-  <button class="tab-btn" data-view="mes">Mes</button>
-  <button class="tab-btn" data-view="cierre">Cierre</button>
-  <button class="tab-btn" data-view="ia">IA</button>
-  <button class="tab-btn" data-view="metas">Metas</button>
-  <button class="tab-btn" data-view="inventario">Inventario</button>
-  <button class="tab-btn" data-view="masivo">Masivo</button>
-</nav>
 
 <main>
 
@@ -762,7 +795,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 58;
+const APP_VERSION = 59;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -3337,6 +3370,18 @@ function setDate(d){
   if(document.getElementById('view-cierre').classList.contains('active')){ renderCierre(); }
 }
 
+const TAB_LABELS = {hoy:'Hoy', semana:'Semana', mes:'Mes', cierre:'Cierre', ia:'IA', metas:'Metas', inventario:'Inventario', masivo:'Masivo'};
+function closeDrawer(){
+  document.getElementById('drawerNav').classList.remove('open');
+  document.getElementById('drawerOverlay').classList.remove('open');
+}
+function openDrawer(){
+  document.getElementById('drawerNav').classList.add('open');
+  document.getElementById('drawerOverlay').classList.add('open');
+}
+document.getElementById('burgerBtn').addEventListener('click', openDrawer);
+document.getElementById('drawerOverlay').addEventListener('click', closeDrawer);
+
 document.querySelectorAll('.tab-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     flushPendingSave();
@@ -3345,6 +3390,8 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('view-'+btn.dataset.view).classList.add('active');
+    document.getElementById('currentViewLabel').textContent = TAB_LABELS[btn.dataset.view] || 'Control de Piso';
+    closeDrawer();
     if(btn.dataset.view==='hoy'){ renderHoy(); }
     if(btn.dataset.view==='semana'){ currentWeekAnchor = new Date(currentDate); renderSemana(); }
     if(btn.dataset.view==='mes'){ mesViewAnchor = new Date(currentDate); renderMes(); }
