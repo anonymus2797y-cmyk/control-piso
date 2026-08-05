@@ -802,7 +802,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 61;
+const APP_VERSION = 62;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -2815,8 +2815,12 @@ function renderInventario(){
 
   const phonesEl = document.getElementById('invPhones');
   if(phonesEl){
-    if(phones.length===0){
-      phonesEl.innerHTML = `<div class="insight-bar">${searchTerm || invPhoneBrandFilter!=='all' ? 'Sin resultados.' : 'Aún no hay teléfonos en el inventario' + (role==='gerente' ? ' — agrégalos arriba.' : '.')}</div>`;
+    if(!searchTerm && invPhoneBrandFilter==='all'){
+      phonesEl.innerHTML = phoneBrands.length
+        ? `<div class="insight-bar">📱 Elige una marca arriba para ver su inventario.</div>`
+        : `<div class="insight-bar">Aún no hay teléfonos en el inventario${role==='gerente' ? ' — impórtalos arriba.' : '.'}</div>`;
+    } else if(phones.length===0){
+      phonesEl.innerHTML = `<div class="insight-bar">Sin resultados.</div>`;
     } else {
       const byModel = {};
       phones.forEach(p=>{
@@ -2836,9 +2840,17 @@ function renderInventario(){
   }
 
   const accsEl = document.getElementById('invAccessories');
-  if(accsEl) accsEl.innerHTML = accs.length
-    ? `<div style="font-size:11.5px; color:var(--ink-faint); margin-bottom:8px;">${accs.length} artículo${accs.length===1?'':'s'}</div>` + accs.map(accessoryRowHtml).join('')
-    : `<div class="insight-bar">${searchTerm || invBrandFilter!=='all' ? 'Sin resultados.' : 'Aún no hay accesorios en el inventario' + (role==='gerente' ? ' — agrégalos arriba.' : '.')}</div>`;
+  if(accsEl){
+    if(!searchTerm && invBrandFilter==='all'){
+      accsEl.innerHTML = brands.length
+        ? `<div class="insight-bar">🎧 Elige una marca arriba para ver su inventario.</div>`
+        : `<div class="insight-bar">Aún no hay accesorios en el inventario${role==='gerente' ? ' — impórtalos arriba.' : '.'}</div>`;
+    } else if(accs.length===0){
+      accsEl.innerHTML = `<div class="insight-bar">Sin resultados.</div>`;
+    } else {
+      accsEl.innerHTML = `<div style="font-size:11.5px; color:var(--ink-faint); margin-bottom:8px;">${accs.length} artículo${accs.length===1?'':'s'}</div>` + accs.map(accessoryRowHtml).join('');
+    }
+  }
 
   const log = loadInventoryLog();
   const histEl = document.getElementById('invHistory');
