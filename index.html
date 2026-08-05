@@ -518,6 +518,7 @@
   <!-- HOY -->
   <section class="view active" id="view-hoy">
     <div id="greetingHero"></div>
+    <div id="storeAlerts"></div>
     <div id="dashboardSummary"></div>
     <div id="execSwitchWrap" style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
       <label style="font-size:11.5px; color:var(--ink-dim); font-weight:700; white-space:nowrap;">👤 Viendo:</label>
@@ -849,7 +850,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 66;
+const APP_VERSION = 67;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -1820,11 +1821,88 @@ function renderHoy(){
   dayData = loadDay(dateStr);
   currentDayCommit = loadDayCommit(dateStr);
   renderGreetingHero();
+  renderStoreAlerts();
   renderDashboardSummary();
   renderCommitForm();
   renderKPIs();
   renderCards();
   renderInsight();
+}
+
+// A quick, color-coded scan of things worth a manager's attention right
+// now — red (urgent), orange (inventory), blue (missed goal), green
+// (record). Gerente-only since it's operational triage, not a personal view.
+function getStoreAlerts(){
+  const alerts = [];
+  const now = new Date();
+  if(fmtDate(currentDate) !== fmtDate(now)) return alerts;
+
+  const STORE_OPEN = 11, STORE_CLOSE = 20;
+  const hourFrac = now.getHours() + now.getMinutes()/60;
+  if(hourFrac > STORE_OPEN && hourFrac < STORE_CLOSE){
+    const totals = {}; CATS.forEach(c=> totals[c.id]=0);
+    EXECS.forEach(ex=> CATS.forEach(c=> totals[c.id] += (dayData[ex.id]||{})[c.id]||0));
+    if(sumVals(totals)===0 && (hourFrac-STORE_OPEN)>=2){
+      alerts.push({level:'red', text:`Nadie ha vendido nada hoy — ya llevan ${Math.floor(hourFrac-STORE_OPEN)} horas abiertos.`});
+    }
+    getInactivityAlerts().forEach(a=> alerts.push({level:'red', text:`${a.ex.name} lleva ${a.hours} ${a.hours===1?'hora':'horas'} sin registrar actividad.`}));
+  }
+
+  const inv = loadInventory();
+  const critical = inv.filter(p=> p.stock<=1);
+  if(critical.length>0){
+    alerts.push({level:'orange', text:`Inventario crítico: ${critical.length} producto${critical.length===1?'':'s'} con 1 o menos en stock.`});
+  }
+
+  const yest = new Date(now); yest.setDate(now.getDate()-1);
+  const yStr = fmtDate(yest);
+  const yGoal = sumVals(loadDayCommit(yStr));
+  if(yGoal>0){
+    const yData = loadDay(yStr);
+    const yTotals = {}; CATS.forEach(c=> yTotals[c.id]=0);
+    EXECS.forEach(ex=> CATS.forEach(c=> yTotals[c.id] += (yData[ex.id]||{})[c.id]||0));
+    const ySold = sumVals(yTotals);
+    if(ySold < yGoal){
+      alerts.push({level:'blue', text:`Ayer no se alcanzó la meta del día (${ySold} de ${yGoal}).`});
+    }
+  }
+
+  const totalsToday = {}; CATS.forEach(c=> totalsToday[c.id]=0);
+  EXECS.forEach(ex=> CATS.forEach(c=> totalsToday[c.id] += (dayData[ex.id]||{})[c.id]||0));
+  const todaySold = sumVals(totalsToday);
+  if(todaySold>0){
+    let best = 0;
+    for(let i=1;i<=60;i++){
+      const d = new Date(now); d.setDate(now.getDate()-i);
+      const dv = loadDay(fmtDate(d));
+      let s = 0; EXECS.forEach(ex=> CATS.forEach(c=> s += (dv[ex.id]||{})[c.id]||0));
+      if(s>best) best = s;
+    }
+    if(todaySold>best && best>0){
+      alerts.push({level:'green', text:`¡Récord! Hoy llevan ${todaySold} ventas, superando el mejor día de los últimos 60 (${best}).`});
+    }
+  }
+
+  return alerts;
+}
+
+function renderStoreAlerts(){
+  const el = document.getElementById('storeAlerts');
+  if(!el) return;
+  if(currentRole()!=='gerente'){ el.innerHTML = ''; return; }
+  const alerts = getStoreAlerts();
+  if(alerts.length===0){ el.innerHTML = ''; return; }
+  const colorFor = {red:'var(--bad)', orange:'var(--acc)', blue:'var(--postpago)', green:'var(--renov)'};
+  const iconFor = {red:'🔴', orange:'🟠', blue:'🔵', green:'🟢'};
+  el.innerHTML = `
+    <div style="margin-bottom:16px;">
+      ${alerts.map(a=>`
+        <div style="display:flex; gap:10px; align-items:flex-start; padding:11px 14px; background:var(--bg-panel); border:1px solid var(--line); border-left:3px solid ${colorFor[a.level]}; border-radius:12px; margin-bottom:8px; font-size:12.5px; font-weight:600;">
+          <span>${iconFor[a.level]}</span><span>${a.text}</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
 }
 
 // A friendly, personalized opener above the operational dashboard — the
@@ -3581,6 +3659,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     if(btn.dataset.view==='cierre'){ renderCierre(); }
     if(btn.dataset.view==='inventario'){ renderInventario(); }
     if(btn.dataset.view==='masivo'){ renderMasivo(); }
+    if(btn.dataset.view==='ia'){ showIaBriefingIfNeeded(); }
   });
 });
 
@@ -3702,6 +3781,17 @@ function renderIaQuickCards(){
   });
 }
 
+let iaBriefingShown = false;
+function showIaBriefingIfNeeded(){
+  if(iaBriefingShown) return;
+  iaBriefingShown = true;
+  if(currentRole()==='gerente'){
+    addIaMessage(iaAutoBriefing(), false);
+  } else {
+    addIaMessage('👋 Pregúntame lo que necesites: cómo van tus números de hoy, cómo va el equipo, o toca una tarjeta de arriba.', false);
+  }
+}
+
 function addIaMessage(html, fromUser){
   const conv = document.getElementById('iaConversation');
   if(!conv) return;
@@ -3762,6 +3852,86 @@ function iaComparativoSemanas(){
     return `${arrow} ${c.label}: ${cur} (antes: ${prev})`;
   }).join('<br>');
   return `🔄 <b>Esta semana: ${thisTotal}</b> vs <b>semana pasada: ${lastTotal}</b> — ${trend}.<br><br>${catLines}`;
+}
+
+// Instead of waiting to be asked, IA opens by scanning today's real data and
+// leading with whatever's actually worth Carlos's attention — same spirit as
+// getStoreAlerts, but written as a conversational briefing.
+function iaAutoBriefing(){
+  const now = new Date();
+  const todayStr = fmtDate(now);
+  const todayData = loadDay(todayStr);
+  const todayCommit = loadDayCommit(todayStr);
+  const findings = [];
+
+  const STORE_OPEN = 11, STORE_CLOSE = 20;
+  const hourFrac = now.getHours() + now.getMinutes()/60;
+  const withinHours = hourFrac > STORE_OPEN && hourFrac < STORE_CLOSE;
+
+  if(withinHours){
+    const activeIds = getActiveExecIds(todayStr);
+    EXECS.forEach(ex=>{
+      if(!activeIds.includes(ex.id)) return;
+      const d = todayData[ex.id] || {};
+      const last = d._lastActivity;
+      const hoursSince = last ? (now-last)/3600000 : (hourFrac-STORE_OPEN);
+      if(hoursSince>=2) findings.push(`⚠️ ${ex.name} lleva ${Math.floor(hoursSince)} ${Math.floor(hoursSince)===1?'hora':'horas'} sin registrar actividad.`);
+    });
+  }
+
+  if(withinHours){
+    const elapsed = (hourFrac-STORE_OPEN)/(STORE_CLOSE-STORE_OPEN);
+    const totals = {}; CATS.forEach(c=> totals[c.id]=0);
+    EXECS.forEach(ex=> CATS.forEach(c=> totals[c.id] += (todayData[ex.id]||{})[c.id]||0));
+    let worst = null;
+    CATS.forEach(c=>{
+      const goal = todayCommit[c.id]||0;
+      if(goal<=0) return;
+      const expected = goal*elapsed;
+      const gap = expected - (totals[c.id]||0);
+      if(gap>=1 && (!worst || gap>worst.gap)) worst = {cat:c, gap, expected};
+    });
+    if(worst){
+      const pctBehind = worst.expected>0 ? Math.round((worst.gap/worst.expected)*100) : 0;
+      findings.push(`⚠️ ${worst.cat.label} está ${pctBehind}% debajo de lo esperado para esta hora.`);
+    }
+  }
+
+  const monday = getMonday(now);
+  const weekKey = getISOWeekString(monday);
+  const weekTotalGoal = sumVals(loadWeekCuota(weekKey));
+  if(weekTotalGoal>0){
+    let weekSold = 0;
+    for(let i=0;i<7;i++){
+      const d = new Date(monday); d.setDate(monday.getDate()+i);
+      if(d>now) break;
+      const dv = loadDay(fmtDate(d));
+      EXECS.forEach(ex=> CATS.forEach(c=> weekSold += (dv[ex.id]||{})[c.id]||0));
+    }
+    const remaining = weekTotalGoal - weekSold;
+    if(remaining>0 && remaining<=15){
+      findings.push(`📈 Si hoy venden ${remaining} más, llegan al objetivo semanal.`);
+    }
+  }
+
+  const convData = EXECS.map(ex=>{
+    const d = todayData[ex.id]||{};
+    const cotiz = (d.cotizPiso||0)+(d.cotizCita||0);
+    const cerrado = (d.cerradoPiso||0)+(d.cerradoCita||0);
+    return {ex, rate: cotiz>0 ? cerrado/cotiz : 0, cotiz};
+  }).filter(x=>x.cotiz>0).sort((a,b)=> b.rate-a.rate);
+  if(convData.length>0 && convData[0].rate>0){
+    findings.push(`⭐ ${convData[0].ex.name.split(' ')[0]} tiene la mejor conversión del día (${Math.round(convData[0].rate*100)}%).`);
+  }
+
+  const hour = now.getHours();
+  const greet = hour<12 ? 'Buenos días' : hour<19 ? 'Buenas tardes' : 'Buenas noches';
+
+  if(findings.length===0){
+    return `${greet}, Carlos. Por ahora todo va tranquilo, sin nada urgente que reportar. ¿Quieres que revisemos algo en específico?`;
+  }
+  const header = `${greet}, Carlos. Detecté ${findings.length} cosa${findings.length===1?'':'s'}:<br><br>`;
+  return header + findings.join('<br>') + `<br><br>¿Quieres que prepare el reporte para el grupo?`;
 }
 
 function iaComoVamos(){
@@ -4528,7 +4698,6 @@ function checkForUpdate(){
   initTheme();
   populateExecSwitch();
   renderIaQuickCards();
-  addIaMessage('Hola Carlos 👋 Toca una tarjeta de arriba, o pregúntame lo que quieras: cómo va el equipo, cómo va Alma o Denisse, cómo va Postpago, quién necesita apoyo... aquí ando.', false);
   if(isLoggedIn()){ hideLogin(); }
   checkForUpdate();
   setInterval(checkForUpdate, 3 * 60 * 1000); // re-check every 3 minutes while the app is open
