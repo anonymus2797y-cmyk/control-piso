@@ -218,6 +218,22 @@
   .kpi.acc .val{color:var(--acc);}
   .kpi.total .val{color:var(--accent);}
 
+  .cmp-card{
+    background:var(--bg-panel); border:1px solid var(--line); border-radius:var(--radius);
+    padding:13px 14px; margin-bottom:10px; box-shadow:var(--shadow);
+  }
+  .cmp-card .cmp-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;}
+  .cmp-card .cmp-title{font-size:13px; font-weight:800;}
+  .cmp-card .cmp-pill{font-size:11px; font-weight:800; padding:3px 9px; border-radius:20px;}
+  .cmp-card .cmp-totals{display:flex; align-items:baseline; gap:8px; margin-bottom:6px;}
+  .cmp-card .cmp-cur{font-size:22px; font-weight:800;}
+  .cmp-card .cmp-vs{font-size:11.5px; color:var(--ink-faint); font-weight:600;}
+  .cmp-card .cmp-empty{font-size:12.5px; color:var(--ink-faint); padding:6px 0; line-height:1.5;}
+  .cmp-cat-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-top:10px;}
+  .cmp-cat{font-size:10.5px; padding:6px 7px; border-radius:8px; background:var(--bg-card); border:1px solid var(--line);}
+  .cmp-cat .cmp-cat-label{color:var(--ink-dim); font-weight:700; display:flex; align-items:center; gap:4px; margin-bottom:2px;}
+  .cmp-cat .cmp-cat-val{font-weight:800; font-size:12px;}
+
   .cards{display:grid; grid-template-columns:repeat(3,1fr); gap:10px;}
   .card{
     background:var(--bg-panel); border:1px solid var(--line); border-radius:var(--radius);
@@ -481,6 +497,7 @@
   <button class="tab-btn drawer-item active" data-view="hoy">📋 Hoy</button>
   <button class="tab-btn drawer-item" data-view="semana">📅 Semana</button>
   <button class="tab-btn drawer-item" data-view="mes">🗓️ Mes</button>
+  <button class="tab-btn drawer-item" data-view="comparativas">🔄 Comparativas</button>
   <button class="tab-btn drawer-item" data-view="cierre">🔒 Cierre</button>
   <div class="drawer-eyebrow">Herramientas</div>
   <button class="tab-btn drawer-item" data-view="ia">🤖 IA</button>
@@ -577,6 +594,13 @@
     <button class="save-btn" id="shareMesBtn">📤 Compartir avance del mes</button>
     <button class="save-btn" id="reporteMesBtn" style="margin-top:8px; background:var(--bg-card); color:var(--ink);">📝 Generar reporte de cierre (WhatsApp)</button>
 
+  </section>
+
+  <!-- COMPARATIVAS -->
+  <section class="view" id="view-comparativas">
+    <div class="section-title" style="margin-top:0;">🔄 Comparativas · <span id="cmpDateLabel"></span></div>
+    <div id="cmpCards"></div>
+    <div class="insight-bar" id="cmpInsight"></div>
   </section>
 
   <!-- CIERRE -->
@@ -850,7 +874,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 67;
+const APP_VERSION = 68;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -1022,6 +1046,7 @@ function rerenderActiveView(){
   if(view==='hoy') renderHoy();
   else if(view==='semana') renderSemana();
   else if(view==='mes') renderMes();
+  else if(view==='comparativas') renderComparativas();
   else if(view==='cierre') renderCierre();
   else if(view==='inventario') renderInventario();
   else if(view==='masivo') renderMasivo();
@@ -3398,6 +3423,200 @@ function masivoRenderDashboard(){
   }).join('');
 }
 
+// ==================== COMPARATIVAS ====================
+// Four fixed comparisons Carlos asked for: hoy vs ayer, semana actual vs
+// semana pasada (mismos días transcurridos, para que sea justo), hoy vs
+// mismo día del año pasado, y mes actual vs el promedio histórico diario
+// (prorrateado a los días que van del mes). Cuando no hay suficiente
+// historial para una comparación (tienda muy nueva), se dice honestamente
+// en vez de inventar un número.
+
+// Every date that has ever had a cp_day_ entry saved, from either the live
+// cloud cache or this device's local mirror — used to know what history
+// actually exists before trying to compute an average or a year-ago lookup.
+function getAllCapturedDates(){
+  const keys = new Set();
+  Object.keys(firestoreCache).forEach(k=>{
+    if(k.startsWith('cp_day_')) keys.add(k.slice('cp_day_'.length));
+  });
+  try{
+    for(let i=0;i<localStorage.length;i++){
+      const k = localStorage.key(i);
+      if(k && k.startsWith('cp_day_')) keys.add(k.slice('cp_day_'.length));
+    }
+  }catch(e){}
+  return Array.from(keys).sort();
+}
+
+// {byCat:{postpago:..,...}, total} for the whole team on one date.
+function dayTotals(dateStr){
+  const dv = loadDay(dateStr);
+  const byCat = {}; CATS.forEach(c=> byCat[c.id]=0);
+  EXECS.forEach(ex=> CATS.forEach(c=> byCat[c.id] += (dv[ex.id]||{})[c.id]||0));
+  return {byCat, total: sumVals(byCat)};
+}
+
+// Sums dayTotals() across an inclusive date range.
+function rangeTotals(startDate, endDate){
+  const byCat = {}; CATS.forEach(c=> byCat[c.id]=0);
+  const d = new Date(startDate);
+  while(d<=endDate){
+    const dt = dayTotals(fmtDate(d));
+    CATS.forEach(c=> byCat[c.id]+=dt.byCat[c.id]);
+    d.setDate(d.getDate()+1);
+  }
+  return {byCat, total: sumVals(byCat)};
+}
+
+function cmpHoyVsAyer(){
+  const today = new Date(currentDate);
+  const yesterday = new Date(today); yesterday.setDate(today.getDate()-1);
+  const cur = dayTotals(fmtDate(today));
+  const cmp = dayTotals(fmtDate(yesterday));
+  return {
+    title:'Hoy vs. ayer', icon:'📆',
+    curLabel:'Hoy', cmpLabel:'Ayer',
+    cur, cmp, empty:false
+  };
+}
+
+function cmpSemanaVsSemanaPasada(){
+  const today = new Date(currentDate);
+  const monday = getMonday(today);
+  const diasTranscurridos = Math.floor((today-monday)/86400000)+1; // 1..7
+  const finThis = new Date(today);
+  const cur = rangeTotals(monday, finThis);
+  const lastMonday = new Date(monday); lastMonday.setDate(monday.getDate()-7);
+  const lastEquivalent = new Date(lastMonday); lastEquivalent.setDate(lastMonday.getDate()+diasTranscurridos-1);
+  const cmp = rangeTotals(lastMonday, lastEquivalent);
+  return {
+    title:'Semana actual vs. pasada', icon:'📅',
+    curLabel:`Esta semana (${diasTranscurridos} ${diasTranscurridos===1?'día':'días'})`,
+    cmpLabel:`Semana pasada (mismos ${diasTranscurridos} días)`,
+    cur, cmp, empty:false
+  };
+}
+
+function cmpMismoDiaAnioPasado(){
+  const today = new Date(currentDate);
+  const yearAgo = new Date(today.getFullYear()-1, today.getMonth(), today.getDate());
+  const yearAgoStr = fmtDate(yearAgo);
+  const captured = getAllCapturedDates();
+  if(!captured.includes(yearAgoStr)){
+    return {
+      title:'Hoy vs. mismo día — año pasado', icon:'🗓️',
+      empty:true,
+      note:`Todavía no hay datos capturados del ${yearAgo.toLocaleDateString('es-MX',{day:'numeric', month:'long', year:'numeric'})} para comparar. Esta comparación se activará sola en cuanto la tienda lleve un año de historial.`
+    };
+  }
+  const cur = dayTotals(fmtDate(today));
+  const cmp = dayTotals(yearAgoStr);
+  return {
+    title:'Hoy vs. mismo día — año pasado', icon:'🗓️',
+    curLabel:'Hoy',
+    cmpLabel: yearAgo.toLocaleDateString('es-MX',{day:'numeric', month:'short', year:'numeric'}),
+    cur, cmp, empty:false
+  };
+}
+
+function cmpMesVsPromedio(){
+  const today = new Date(currentDate);
+  const monthKey = monthKeyFromDate(today);
+  const diaDelMes = today.getDate(); // días transcurridos incl. hoy
+  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const cur = rangeTotals(firstOfMonth, today);
+
+  const captured = getAllCapturedDates().filter(ds=> !ds.startsWith(monthKey));
+  if(captured.length < 7){
+    return {
+      title:'Mes actual vs. promedio histórico', icon:'📊',
+      empty:true,
+      note:'Todavía no hay al menos una semana de historial de meses anteriores para calcular un promedio confiable. En cuanto se acumule más historial, esta comparación aparecerá sola.'
+    };
+  }
+  const byCatSum = {}; CATS.forEach(c=> byCatSum[c.id]=0);
+  captured.forEach(ds=>{ const dt=dayTotals(ds); CATS.forEach(c=> byCatSum[c.id]+=dt.byCat[c.id]); });
+  const avgByCat = {}; CATS.forEach(c=> avgByCat[c.id] = byCatSum[c.id]/captured.length);
+  const cmpByCat = {}; CATS.forEach(c=> cmpByCat[c.id] = Math.round(avgByCat[c.id]*diaDelMes*10)/10);
+  const cmp = {byCat: cmpByCat, total: sumVals(cmpByCat)};
+  return {
+    title:'Mes actual vs. promedio histórico', icon:'📊',
+    curLabel:`Este mes (día ${diaDelMes})`,
+    cmpLabel:'Promedio esperado a estos días',
+    cur, cmp, empty:false
+  };
+}
+
+function pctDiff(cur, cmp){
+  if(cmp<=0) return cur>0 ? 100 : 0;
+  return Math.round(((cur-cmp)/cmp)*100);
+}
+
+function renderCmpCard(data){
+  if(data.empty){
+    return `
+      <div class="cmp-card">
+        <div class="cmp-head"><div class="cmp-title">${data.icon} ${data.title}</div></div>
+        <div class="cmp-empty">ℹ️ ${data.note}</div>
+      </div>`;
+  }
+  const diff = pctDiff(data.cur.total, data.cmp.total);
+  const up = diff>0, flat = diff===0;
+  const pillColor = flat ? 'var(--ink-faint)' : up ? 'var(--renov)' : 'var(--bad)';
+  const pillBg = flat ? 'var(--bg-card)' : up ? '#38c98d22' : '#ef5a6f22';
+  const arrow = flat ? '➖' : up ? '📈' : '📉';
+  const pillText = flat ? 'igual' : `${up?'+':''}${diff}%`;
+
+  const catCells = CATS.map(c=>{
+    const cv = data.cur.byCat[c.id]||0, mv = Math.round((data.cmp.byCat[c.id]||0)*10)/10;
+    const catArrow = cv>mv ? '📈' : cv<mv ? '📉' : '➖';
+    return `<div class="cmp-cat"><div class="cmp-cat-label"><span class="dot ${c.cls}"></span>${c.label}</div><div class="cmp-cat-val">${catArrow} ${cv} <span style="color:var(--ink-faint); font-weight:600;">(${mv})</span></div></div>`;
+  }).join('');
+
+  return `
+    <div class="cmp-card">
+      <div class="cmp-head">
+        <div class="cmp-title">${data.icon} ${data.title}</div>
+        <div class="cmp-pill" style="color:${pillColor}; background:${pillBg};">${arrow} ${pillText}</div>
+      </div>
+      <div class="cmp-totals">
+        <div class="cmp-cur">${data.cur.total}</div>
+        <div class="cmp-vs">${data.curLabel} · vs <b>${data.cmp.total}</b> ${data.cmpLabel}</div>
+      </div>
+      <div class="cmp-cat-grid">${catCells}</div>
+    </div>`;
+}
+
+function renderComparativas(){
+  document.getElementById('cmpDateLabel').textContent =
+    currentDate.toLocaleDateString('es-MX', {weekday:'long', day:'numeric', month:'long'});
+
+  const comparisons = [
+    cmpHoyVsAyer(),
+    cmpSemanaVsSemanaPasada(),
+    cmpMismoDiaAnioPasado(),
+    cmpMesVsPromedio()
+  ];
+
+  document.getElementById('cmpCards').innerHTML = comparisons.map(renderCmpCard).join('');
+
+  // One-line auto insight: call out whichever real (non-empty) comparison
+  // moved the most, so the tab leads with something worth noticing.
+  const real = comparisons.filter(c=>!c.empty).map(c=>({...c, diff: pctDiff(c.cur.total, c.cmp.total)}));
+  const insightEl = document.getElementById('cmpInsight');
+  if(real.length===0){
+    insightEl.innerHTML = '';
+  } else {
+    const most = real.reduce((a,b)=> Math.abs(b.diff)>Math.abs(a.diff) ? b : a);
+    if(most.diff===0){
+      insightEl.textContent = `➖ ${most.title}: exactamente igual.`;
+    } else {
+      const dir = most.diff>0 ? 'arriba' : 'abajo';
+      insightEl.textContent = `${most.diff>0?'📈':'📉'} ${most.title}: ${Math.abs(most.diff)}% ${dir} — el movimiento más grande de las 4 comparativas.`;
+    }
+  }
+}
+
 function renderCierre(){
   const dateStr = fmtDate(currentDate);
   const dayVals = loadDay(dateStr);
@@ -3631,7 +3850,7 @@ function setDate(d){
   if(document.getElementById('view-cierre').classList.contains('active')){ renderCierre(); }
 }
 
-const TAB_LABELS = {hoy:'Hoy', semana:'Semana', mes:'Mes', cierre:'Cierre', ia:'IA', metas:'Metas', inventario:'Inventario', masivo:'Masivo'};
+const TAB_LABELS = {hoy:'Hoy', semana:'Semana', mes:'Mes', comparativas:'Comparativas', cierre:'Cierre', ia:'IA', metas:'Metas', inventario:'Inventario', masivo:'Masivo'};
 function closeDrawer(){
   document.getElementById('drawerNav').classList.remove('open');
   document.getElementById('drawerOverlay').classList.remove('open');
@@ -3656,6 +3875,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     if(btn.dataset.view==='hoy'){ renderHoy(); }
     if(btn.dataset.view==='semana'){ currentWeekAnchor = new Date(currentDate); renderSemana(); }
     if(btn.dataset.view==='mes'){ mesViewAnchor = new Date(currentDate); renderMes(); }
+    if(btn.dataset.view==='comparativas'){ renderComparativas(); }
     if(btn.dataset.view==='cierre'){ renderCierre(); }
     if(btn.dataset.view==='inventario'){ renderInventario(); }
     if(btn.dataset.view==='masivo'){ renderMasivo(); }
