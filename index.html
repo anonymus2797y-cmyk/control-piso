@@ -57,6 +57,50 @@
   }
   *{box-sizing:border-box;}
   h1, h2, h3, .brand h1, .section-title{ font-family:'Manrope', 'Inter', sans-serif; }
+
+  @keyframes loginBlobFloat{
+    0%,100%{ transform:translate(0,0) scale(1); }
+    50%{ transform:translate(-4%,5%) scale(1.1); }
+  }
+  @keyframes loginCardEnter{
+    from{ opacity:0; transform:translateY(16px) scale(.96); }
+    to{ opacity:1; transform:translateY(0) scale(1); }
+  }
+  @keyframes loginLogoGlow{
+    0%,100%{ box-shadow:0 0 0 0 var(--accent-dim); }
+    50%{ box-shadow:0 0 34px 8px var(--accent-dim); }
+  }
+  .login-blob{
+    position:absolute; border-radius:50%; filter:blur(64px); opacity:.55; z-index:0;
+    animation:loginBlobFloat 11s ease-in-out infinite;
+  }
+  .login-blob.b1{ width:420px; height:420px; background:var(--accent); top:-160px; left:-140px; }
+  .login-blob.b2{ width:360px; height:360px; background:var(--postpago2); bottom:-140px; right:-120px; animation-delay:2.2s; }
+  .login-card-premium{
+    position:relative; z-index:2; max-width:340px; width:100%;
+    background:var(--bg-panel); border:1px solid var(--line); border-radius:24px; padding:34px 26px 28px;
+    box-shadow:0 24px 60px rgba(0,0,0,.35);
+    animation:loginCardEnter .5s cubic-bezier(.2,.8,.2,1);
+  }
+  .login-logo-large{
+    width:60px; height:60px; border-radius:17px; margin:0 auto 18px;
+    background:var(--bg-card); border:1px solid var(--line);
+    display:flex; align-items:flex-end; justify-content:center; gap:4px; padding:12px 13px 10px;
+    animation:loginLogoGlow 3s ease-in-out infinite;
+  }
+  .login-logo-large i{ width:6px; border-radius:3px; background:var(--accent); display:block; }
+  .login-logo-large i:nth-child(1){height:9px;}
+  .login-logo-large i:nth-child(2){height:16px;}
+  .login-logo-large i:nth-child(3){height:23px;}
+  .login-logo-large i:nth-child(4){height:30px;}
+  .login-avatar{
+    width:72px; height:72px; border-radius:50%; margin:0 auto 14px;
+    background:linear-gradient(135deg, var(--accent), var(--postpago2));
+    display:flex; align-items:center; justify-content:center;
+    font-size:25px; font-weight:800; color:#fff; font-family:'Manrope',sans-serif;
+    box-shadow:0 10px 26px var(--accent-dim);
+    transition:transform .2s ease;
+  }
   body{
     margin:0;
     background: var(--body-bg);
@@ -400,17 +444,15 @@
 </head>
 <body>
 
-<div id="loginOverlay" style="position:fixed; inset:0; z-index:200; background:var(--bg); display:flex; align-items:center; justify-content:center; padding:20px;">
-  <div style="max-width:340px; width:100%; background:var(--bg-panel); border:1px solid var(--line); border-radius:16px; padding:26px;">
-    <div style="text-align:center; margin-bottom:20px;">
-      <div style="width:52px; height:52px; border-radius:14px; background:var(--bg-card); border:1px solid var(--line); display:flex; align-items:flex-end; justify-content:center; gap:3px; padding:10px 11px 8px; margin:0 auto 12px;">
-        <i style="width:5px; height:8px; border-radius:2.5px; background:var(--accent); display:block;"></i>
-        <i style="width:5px; height:15px; border-radius:2.5px; background:var(--accent); display:block;"></i>
-        <i style="width:5px; height:22px; border-radius:2.5px; background:var(--accent); display:block;"></i>
-        <i style="width:5px; height:29px; border-radius:2.5px; background:var(--accent); display:block;"></i>
-      </div>
-      <div style="font-weight:800; font-size:16px;">Control de Piso</div>
-      <div style="font-size:12px; color:var(--ink-dim); margin-top:2px;">Inicia sesión para continuar</div>
+<div id="loginOverlay" style="position:fixed; inset:0; z-index:200; overflow:hidden; display:flex; align-items:center; justify-content:center; padding:20px; background:var(--bg);">
+  <div class="login-blob b1"></div>
+  <div class="login-blob b2"></div>
+  <div class="login-card-premium">
+    <div class="login-logo-large"><i></i><i></i><i></i><i></i></div>
+    <div class="login-avatar" id="loginAvatar">?</div>
+    <div style="text-align:center; margin-bottom:22px;">
+      <div style="font-family:'Manrope',sans-serif; font-weight:800; font-size:19px;" id="loginGreeting">¿Quién eres?</div>
+      <div style="font-size:12px; color:var(--ink-dim); margin-top:3px;">Portal Lagos de Moreno</div>
     </div>
     <label style="font-size:11.5px; font-weight:700; color:var(--ink-dim); display:block; margin-bottom:5px;">¿Quién eres?</label>
     <select id="loginUser" style="width:100%; margin-bottom:14px; padding:9px;">
@@ -475,6 +517,7 @@
 
   <!-- HOY -->
   <section class="view active" id="view-hoy">
+    <div id="greetingHero"></div>
     <div id="dashboardSummary"></div>
     <div id="execSwitchWrap" style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
       <label style="font-size:11.5px; color:var(--ink-dim); font-weight:700; white-space:nowrap;">👤 Viendo:</label>
@@ -549,7 +592,11 @@
 
   <!-- IA -->
   <section class="view" id="view-ia">
-    <div class="section-title" style="margin-top:0;">🤖 Asistente de tienda <span style="color:var(--ink-faint); font-weight:600; text-transform:none;">— solo gerente</span></div>
+    <div style="text-align:center; padding:6px 0 16px;">
+      <div style="font-size:32px;">🤖</div>
+      <div style="font-family:'Manrope',sans-serif; font-weight:800; font-size:17px; margin-top:6px;">¿En qué te ayudo?</div>
+      <div style="font-size:12px; color:var(--ink-dim); margin-top:2px;">Toca una tarjeta o escribe tu pregunta abajo</div>
+    </div>
     <div id="iaQuickCards"></div>
     <div class="section-title">Conversación</div>
     <div id="iaConversation" style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px; max-height:340px; overflow-y:auto;"></div>
@@ -802,7 +849,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 62;
+const APP_VERSION = 64;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -1772,11 +1819,61 @@ function renderHoy(){
   const dateStr = fmtDate(currentDate);
   dayData = loadDay(dateStr);
   currentDayCommit = loadDayCommit(dateStr);
+  renderGreetingHero();
   renderDashboardSummary();
   renderCommitForm();
   renderKPIs();
   renderCards();
   renderInsight();
+}
+
+// A friendly, personalized opener above the operational dashboard — the
+// goal is that a manager glancing at their phone gets the headline numbers
+// in under 5 seconds, before any of the denser KPI detail below.
+function renderGreetingHero(){
+  const el = document.getElementById('greetingHero');
+  if(!el) return;
+
+  const isToday = fmtDate(currentDate) === fmtDate(new Date());
+  if(!isToday){ el.innerHTML = ''; return; }
+
+  const session = getSession();
+  const role = currentRole();
+  const execInfo = EXECS.find(e=>e.id===session);
+  const firstName = execInfo ? execInfo.name.split(' ')[0] : (role==='gerente' ? 'Carlos' : '');
+
+  const hour = new Date().getHours();
+  const timeGreeting = hour<12 ? 'Buenos días' : hour<19 ? 'Buenas tardes' : 'Buenas noches';
+  const timeEmoji = hour<12 ? '☀️' : hour<19 ? '🌤️' : '🌙';
+
+  const totals = {postpago:0, postpago_servicio:0, renov:0, prepago:0, seguros:0, acc:0};
+  EXECS.forEach(ex=> CATS.forEach(c=> totals[c.id] += (dayData[ex.id]||{})[c.id]||0));
+  const totalSold = sumVals(totals);
+  const totalCommit = sumVals(currentDayCommit);
+  const pct = totalCommit>0 ? Math.round(totalSold/totalCommit*100) : 0;
+  const postpagoTotal = (totals.postpago||0) + (totals.postpago_servicio||0);
+
+  const execToday = EXECS.map(ex=>({ex, total: totalFor(dayData[ex.id]||{})})).sort((a,b)=> b.total-a.total);
+  const leader = execToday[0];
+
+  el.innerHTML = `
+    <div style="background:linear-gradient(135deg, var(--accent), var(--postpago2)); border-radius:20px; padding:22px 20px; margin-bottom:16px; color:#fff;">
+      <div style="font-family:'Manrope',sans-serif; font-weight:800; font-size:19px;">${timeEmoji} ${timeGreeting}${firstName?', '+firstName:''} 👋</div>
+      <div style="font-size:12.5px; opacity:.85; margin-top:2px; margin-bottom:16px;">Esto es lo que llevan hoy:</div>
+      <div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom:16px;">
+        <div><div style="font-size:22px; font-weight:800; font-family:'Manrope',sans-serif;">📱 ${postpagoTotal}</div><div style="font-size:10.5px; opacity:.8;">líneas</div></div>
+        <div><div style="font-size:22px; font-weight:800; font-family:'Manrope',sans-serif;">♻️ ${totals.renov||0}</div><div style="font-size:10.5px; opacity:.8;">renovaciones</div></div>
+        <div><div style="font-size:22px; font-weight:800; font-family:'Manrope',sans-serif;">🛡️ ${totals.seguros||0}</div><div style="font-size:10.5px; opacity:.8;">seguros</div></div>
+      </div>
+      <div style="display:flex; align-items:flex-end; justify-content:space-between; padding-top:14px; border-top:1px solid rgba(255,255,255,.25);">
+        <div>
+          <div style="font-size:28px; font-weight:800; font-family:'Manrope',sans-serif; line-height:1;">${pct}%</div>
+          <div style="font-size:10.5px; opacity:.8; margin-top:2px;">de cumplimiento</div>
+        </div>
+        ${leader && leader.total>0 ? `<div style="text-align:right;"><div style="font-size:10.5px; opacity:.8;">🔥 Líder</div><div style="font-size:14px; font-weight:800;">${leader.ex.name.split(' ')[0]}</div></div>` : ''}
+      </div>
+    </div>
+  `;
 }
 
 // ---- DASHBOARD SUMMARY (top-of-screen manager view: today's numbers, MVP,
@@ -2580,12 +2677,11 @@ function populateBajioStoreFilter(){
   if(!sel) return;
   const catalog = loadBajioCatalog();
   const stores = Array.from(new Set(catalog.rows.map(r=>r.s))).sort();
-  const myStoreFull = stores.find(s=> s.toUpperCase().includes(INV_STORE_MATCH));
   const prevValue = sel.value;
-  sel.innerHTML = `<option value="all">Todas las sucursales</option>` +
+  sel.innerHTML = `<option value="">— Elige una sucursal —</option><option value="all">Todas las sucursales</option>` +
     stores.map(s=>`<option value="${s}">${s}</option>`).join('');
-  if(stores.includes(prevValue)) sel.value = prevValue;
-  else if(myStoreFull) sel.value = myStoreFull;
+  if(prevValue==='all' || stores.includes(prevValue)) sel.value = prevValue;
+  else sel.value = '';
 }
 
 function renderBajioCatalog(){
@@ -2606,9 +2702,15 @@ function renderBajioCatalog(){
   metaEl.textContent = `BAJÍO · actualizado ${updatedDate} · ${catalog.rows.length} variantes`;
 
   const storeSel = document.getElementById('inv-bajio-store');
-  const storeFilter = storeSel ? storeSel.value : 'all';
+  const storeFilter = storeSel ? storeSel.value : '';
   const searchEl = document.getElementById('inv-bajio-search');
   const searchTerm = (searchEl ? searchEl.value : '').toLowerCase();
+
+  if(!searchTerm && !storeFilter){
+    summaryEl.textContent = '';
+    listEl.innerHTML = `<div class="insight-bar">🏬 Elige una sucursal arriba para ver su inventario.</div>`;
+    return;
+  }
 
   let rows = catalog.rows;
   if(storeFilter && storeFilter!=='all') rows = rows.filter(r=> r.s===storeFilter);
@@ -3513,22 +3615,40 @@ document.getElementById('themeToggle').addEventListener('click', ()=>{
 // answers with real numbers — not a connection to an external AI service
 // (that would need a backend to protect an API key). It covers the exact
 // questions a store manager asks day to day.
-const IA_ACTIONS = [
-  {emoji:'📊', label:'¿Cómo vamos?', key:'como_vamos'},
-  {emoji:'🐢', label:'¿Qué indicador está atrasado?', key:'atrasado'},
-  {emoji:'🤝', label:'¿Quién necesita apoyo?', key:'apoyo'},
-  {emoji:'🏆', label:'¿Quién va mejor?', key:'mejor'},
-  {emoji:'📈', label:'¿Quién convierte mejor?', key:'conversion'},
-  {emoji:'📋', label:'¿Quién tiene seguimientos pendientes?', key:'seguimiento'},
-  {emoji:'🎯', label:'¿Qué falta para el 80% semanal?', key:'meta80'},
-  {emoji:'🏁', label:'¿Cómo cerrar el mes?', key:'cerrar_mes'}
+const IA_CATEGORIES = [
+  {name:'📊 Reportes', actions:[
+    {emoji:'🏁', label:'¿Cómo cerrar el mes?', key:'cerrar_mes'},
+  ]},
+  {name:'📈 Estadísticas', actions:[
+    {emoji:'📊', label:'¿Cómo vamos?', key:'como_vamos'},
+    {emoji:'📈', label:'¿Quién convierte mejor?', key:'conversion'},
+  ]},
+  {name:'🎯 Metas', actions:[
+    {emoji:'🎯', label:'¿Qué falta para el 80% semanal?', key:'meta80'},
+  ]},
+  {name:'📦 Inventario', actions:[
+    {emoji:'📦', label:'¿Qué se está agotando?', key:'inventario_bajo'},
+  ]},
+  {name:'🔄 Comparativas', actions:[
+    {emoji:'🔄', label:'¿Cómo vamos vs semana pasada?', key:'comparativo_semanas'},
+    {emoji:'🏆', label:'¿Quién va mejor?', key:'mejor'},
+  ]},
+  {name:'🚨 Alertas', actions:[
+    {emoji:'🐢', label:'¿Qué indicador está atrasado?', key:'atrasado'},
+    {emoji:'🤝', label:'¿Quién necesita apoyo?', key:'apoyo'},
+    {emoji:'📋', label:'¿Quién tiene seguimientos pendientes?', key:'seguimiento'},
+  ]}
 ];
+const IA_ACTIONS = IA_CATEGORIES.flatMap(cat=>cat.actions);
 
 function renderIaQuickCards(){
   const el = document.getElementById('iaQuickCards');
   if(!el) return;
-  el.innerHTML = IA_ACTIONS.map(a=>`
-    <div class="ia-card" data-key="${a.key}" data-label="${a.label}"><span class="emoji">${a.emoji}</span><span>${a.label}</span></div>
+  el.innerHTML = IA_CATEGORIES.map(cat=>`
+    <div style="font-size:10.5px; font-weight:800; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.4px; margin:14px 2px 6px;">${cat.name}</div>
+    <div class="ia-cards-group">
+      ${cat.actions.map(a=>`<div class="ia-card" data-key="${a.key}" data-label="${a.label}"><span class="emoji">${a.emoji}</span><span>${a.label}</span></div>`).join('')}
+    </div>
   `).join('');
   el.querySelectorAll('.ia-card').forEach(card=>{
     card.addEventListener('click', ()=> runIaAction(card.dataset.key, card.dataset.label));
@@ -3556,6 +3676,46 @@ function iaMonthTotalsUpTo(year, monthIdx, uptoDay){
 }
 function sumVals(obj){ return Object.values(obj).reduce((a,b)=>a+b,0); }
 function iaPick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+function iaInventarioBajo(){
+  const inv = loadInventory();
+  if(inv.length===0) return '📦 Aún no has importado tu inventario — sube tu reporte de existencias en la pestaña Inventario para que pueda avisarte cuando algo se esté agotando.';
+  const low = inv.filter(p=> p.stock<=2).sort((a,b)=> a.stock-b.stock);
+  if(low.length===0) return `✅ Todo tu inventario está en buen nivel — ninguno de tus ${inv.length} productos está por debajo de 3 unidades ahora mismo.`;
+  const lines = low.slice(0,10).map(p=> `• ${p.name}${p.sku?` (${p.sku})`:''} — <b>${p.stock}</b> en stock`).join('<br>');
+  const extra = low.length>10 ? `<br><span style="color:var(--ink-faint);">...y ${low.length-10} más.</span>` : '';
+  return `📦 <b>Esto se está agotando (3 o menos):</b><br>${lines}${extra}`;
+}
+
+function iaComparativoSemanas(){
+  const today = new Date();
+  const monday = getMonday(today);
+  const emptyTotals = ()=> ({postpago:0, postpago_servicio:0, renov:0, prepago:0, seguros:0, acc:0});
+  const totalsThis = emptyTotals();
+  for(let i=0;i<7;i++){
+    const d = new Date(monday); d.setDate(monday.getDate()+i);
+    if(d>today) break;
+    const dv = loadDay(fmtDate(d));
+    EXECS.forEach(ex=> CATS.forEach(c=> totalsThis[c.id] += dv[ex.id][c.id]||0));
+  }
+  const lastMonday = new Date(monday); lastMonday.setDate(monday.getDate()-7);
+  const totalsLast = emptyTotals();
+  for(let i=0;i<7;i++){
+    const d = new Date(lastMonday); d.setDate(lastMonday.getDate()+i);
+    const dv = loadDay(fmtDate(d));
+    EXECS.forEach(ex=> CATS.forEach(c=> totalsLast[c.id] += dv[ex.id][c.id]||0));
+  }
+  const thisTotal = sumVals(totalsThis), lastTotal = sumVals(totalsLast);
+  if(thisTotal===0 && lastTotal===0) return '🔄 Todavía no hay ventas registradas esta semana ni la pasada para comparar.';
+  const diff = lastTotal>0 ? Math.round(((thisTotal-lastTotal)/lastTotal)*100) : (thisTotal>0?100:0);
+  const trend = diff>0 ? `📈 vamos <b>${diff}% arriba</b> de la semana pasada` : diff<0 ? `📉 vamos <b>${Math.abs(diff)}% abajo</b> de la semana pasada` : 'vamos exactamente igual que la semana pasada';
+  const catLines = CATS.map(c=>{
+    const cur = totalsThis[c.id]||0, prev = totalsLast[c.id]||0;
+    const arrow = cur>prev ? '📈' : cur<prev ? '📉' : '➖';
+    return `${arrow} ${c.label}: ${cur} (antes: ${prev})`;
+  }).join('<br>');
+  return `🔄 <b>Esta semana: ${thisTotal}</b> vs <b>semana pasada: ${lastTotal}</b> — ${trend}.<br><br>${catLines}`;
+}
 
 function iaComoVamos(){
   const today = new Date();
@@ -4145,6 +4305,8 @@ function runIaAction(key, labelText){
       case 'conversion': response = iaConversion(); break;
       case 'seguimiento': response = iaSeguimientoPendiente(); break;
       case 'meta80': response = iaQueFaltaPara80(); break;
+      case 'inventario_bajo': response = iaInventarioBajo(); break;
+      case 'comparativo_semanas': response = iaComparativoSemanas(); break;
       case 'mejor': response = iaQuienVaMejor(); break;
       case 'cerrar_mes': response = iaComoCerrarMes(); break;
       case 'whatsapp': response = iaGenerarMensajeWhatsApp(); break;
@@ -4157,7 +4319,7 @@ function runIaAction(key, labelText){
       case 'gracias': response = iaPick(['¡Con gusto! 🙌', 'Para eso estoy 👍', 'De nada, aquí sigo si necesitas algo más.']); break;
       case 'despedida': response = iaPick(['¡Nos vemos! Aquí estaré cuando me necesites 👋', 'Va, cualquier cosa aquí ando.']); break;
       case 'como_estas': response = 'Muy bien, listo para ayudarte con la tienda 💪 ¿Qué revisamos?'; break;
-      case 'ayuda': response = 'Puedo platicarte sobre:<br>• Cómo vamos (hoy/semana/mes)<br>• Qué está atrasado<br>• Quién necesita apoyo (o "quién es el menos productivo")<br>• Quién va mejor<br>• Quién convierte mejor (cotizaciones → cierres)<br>• Quién tiene seguimientos pendientes<br>• Qué falta para el 80% semanal<br>• Cómo cerrar el mes<br>• También puedes preguntarme por un ejecutivo (ej. "cómo va Alma") o un indicador (ej. "cómo va Postpago")'; break;
+      case 'ayuda': response = 'Puedo platicarte sobre:<br>• Cómo vamos (hoy/semana/mes)<br>• Qué está atrasado<br>• Quién necesita apoyo (o "quién es el menos productivo")<br>• Quién va mejor<br>• Quién convierte mejor (cotizaciones → cierres)<br>• Quién tiene seguimientos pendientes<br>• Qué falta para el 80% semanal<br>• Cómo cerrar el mes<br>• Qué se está agotando en inventario<br>• Cómo vamos vs la semana pasada<br>• También puedes preguntarme por un ejecutivo (ej. "cómo va Alma") o un indicador (ej. "cómo va Postpago")'; break;
       default: response = 'No entendí bien esa pregunta 🤔. Escribe "ayuda" para ver de qué te puedo hablar, o toca una tarjeta de arriba.';
     }
   }
@@ -4215,8 +4377,19 @@ document.getElementById('iaInput').addEventListener('keydown', (e)=>{
 });
 
 // ---- LOGIN SCREEN ----
+const LOGIN_FIRST_NAMES = {alma:'Alma', denisse:'Denisse', godoy:'Jesús', gerente:'Carlos'};
+const LOGIN_INITIALS = {alma:'AA', denisse:'DY', godoy:'JG', gerente:'CM'};
+function updateLoginPreview(){
+  const user = document.getElementById('loginUser').value;
+  document.getElementById('loginAvatar').textContent = LOGIN_INITIALS[user] || '?';
+  document.getElementById('loginGreeting').textContent = `Bienvenido, ${LOGIN_FIRST_NAMES[user] || ''}`;
+}
+document.getElementById('loginUser').addEventListener('change', updateLoginPreview);
+updateLoginPreview();
+
 function showLogin(){
   document.getElementById('loginOverlay').style.display = 'flex';
+  updateLoginPreview();
 }
 function hideLogin(){
   document.getElementById('loginOverlay').style.display = 'none';
