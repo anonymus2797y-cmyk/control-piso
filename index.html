@@ -849,7 +849,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 64;
+const APP_VERSION = 65;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -1860,10 +1860,12 @@ function renderGreetingHero(){
     <div style="background:linear-gradient(135deg, var(--accent), var(--postpago2)); border-radius:20px; padding:22px 20px; margin-bottom:16px; color:#fff;">
       <div style="font-family:'Manrope',sans-serif; font-weight:800; font-size:19px;">${timeEmoji} ${timeGreeting}${firstName?', '+firstName:''} 👋</div>
       <div style="font-size:12.5px; opacity:.85; margin-top:2px; margin-bottom:16px;">Esto es lo que llevan hoy:</div>
-      <div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom:16px;">
-        <div><div style="font-size:22px; font-weight:800; font-family:'Manrope',sans-serif;">📱 ${postpagoTotal}</div><div style="font-size:10.5px; opacity:.8;">líneas</div></div>
-        <div><div style="font-size:22px; font-weight:800; font-family:'Manrope',sans-serif;">♻️ ${totals.renov||0}</div><div style="font-size:10.5px; opacity:.8;">renovaciones</div></div>
-        <div><div style="font-size:22px; font-weight:800; font-family:'Manrope',sans-serif;">🛡️ ${totals.seguros||0}</div><div style="font-size:10.5px; opacity:.8;">seguros</div></div>
+      <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:16px;">
+        <div><div style="font-size:20px; font-weight:800; font-family:'Manrope',sans-serif;">📱 ${postpagoTotal}</div><div style="font-size:10px; opacity:.8;">líneas</div></div>
+        <div><div style="font-size:20px; font-weight:800; font-family:'Manrope',sans-serif;">♻️ ${totals.renov||0}</div><div style="font-size:10px; opacity:.8;">renovaciones</div></div>
+        <div><div style="font-size:20px; font-weight:800; font-family:'Manrope',sans-serif;">🎧 ${totals.acc||0}</div><div style="font-size:10px; opacity:.8;">accesorios</div></div>
+        <div><div style="font-size:20px; font-weight:800; font-family:'Manrope',sans-serif;">🛡️ ${totals.seguros||0}</div><div style="font-size:10px; opacity:.8;">seguros</div></div>
+        <div><div style="font-size:20px; font-weight:800; font-family:'Manrope',sans-serif;">💳 ${totals.prepago||0}</div><div style="font-size:10px; opacity:.8;">prepagos</div></div>
       </div>
       <div style="display:flex; align-items:flex-end; justify-content:space-between; padding-top:14px; border-top:1px solid rgba(255,255,255,.25);">
         <div>
