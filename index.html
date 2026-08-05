@@ -802,7 +802,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 60;
+const APP_VERSION = 61;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -2773,34 +2773,42 @@ function renderInventario(){
   let phones = inv.filter(p=>p.category==='telefono' && matches(p));
   let accs = inv.filter(p=>p.category==='accesorio' && matches(p));
 
-  // Brand filter pills for phones, built from whatever's actually in stock.
+  // Brand filter for phones, as a compact dropdown instead of a wall of pills.
   const phoneBrands = Array.from(new Set(inv.filter(p=>p.category==='telefono' && p.brand).map(p=>p.brand))).sort();
   const phoneBrandFiltersEl = document.getElementById('invPhoneBrandFilters');
   if(phoneBrandFiltersEl){
     if(phoneBrands.length===0){
       phoneBrandFiltersEl.innerHTML = '';
     } else {
-      const pill = (label, value) => `<button type="button" class="inv-phone-brand-pill" data-brand="${value}" style="font-size:11.5px; font-weight:700; padding:6px 14px; border-radius:20px; border:1px solid var(--line); background:${invPhoneBrandFilter===value?'var(--accent)':'var(--bg-card)'}; color:${invPhoneBrandFilter===value?'#0b1220':'var(--ink)'};">${label}</button>`;
-      phoneBrandFiltersEl.innerHTML = pill('Todas las marcas', 'all') + phoneBrands.map(b=>pill(b, b)).join('');
-      phoneBrandFiltersEl.querySelectorAll('.inv-phone-brand-pill').forEach(btn=>{
-        btn.addEventListener('click', ()=>{ invPhoneBrandFilter = btn.dataset.brand; renderInventario(); });
-      });
+      phoneBrandFiltersEl.innerHTML = `
+        <select id="invPhoneBrandSelect" style="width:100%; background:var(--bg-card); border:1px solid var(--line); color:var(--ink); padding:9px 10px; border-radius:10px; font-size:12.5px; font-weight:700;">
+          <option value="all">Todas las marcas</option>
+          ${phoneBrands.map(b=>`<option value="${b}">${b}</option>`).join('')}
+        </select>
+      `;
+      const sel = document.getElementById('invPhoneBrandSelect');
+      sel.value = invPhoneBrandFilter;
+      sel.addEventListener('change', ()=>{ invPhoneBrandFilter = sel.value; renderInventario(); });
     }
   }
   if(invPhoneBrandFilter !== 'all') phones = phones.filter(p=> p.brand===invPhoneBrandFilter);
 
-  // Brand filter pills, built from whatever brands are actually in stock.
+  // Same idea for accessories.
   const brands = Array.from(new Set(inv.filter(p=>p.category==='accesorio' && p.brand).map(p=>p.brand))).sort();
   const brandFiltersEl = document.getElementById('invBrandFilters');
   if(brandFiltersEl){
     if(brands.length===0){
       brandFiltersEl.innerHTML = '';
     } else {
-      const pill = (label, value) => `<button type="button" class="inv-brand-pill" data-brand="${value}" style="font-size:11.5px; font-weight:700; padding:6px 14px; border-radius:20px; border:1px solid var(--line); background:${invBrandFilter===value?'var(--accent)':'var(--bg-card)'}; color:${invBrandFilter===value?'#0b1220':'var(--ink)'};">${label}</button>`;
-      brandFiltersEl.innerHTML = pill('Todas las marcas', 'all') + brands.map(b=>pill(b, b)).join('');
-      brandFiltersEl.querySelectorAll('.inv-brand-pill').forEach(btn=>{
-        btn.addEventListener('click', ()=>{ invBrandFilter = btn.dataset.brand; renderInventario(); });
-      });
+      brandFiltersEl.innerHTML = `
+        <select id="invAccBrandSelect" style="width:100%; background:var(--bg-card); border:1px solid var(--line); color:var(--ink); padding:9px 10px; border-radius:10px; font-size:12.5px; font-weight:700;">
+          <option value="all">Todas las marcas</option>
+          ${brands.map(b=>`<option value="${b}">${b}</option>`).join('')}
+        </select>
+      `;
+      const sel = document.getElementById('invAccBrandSelect');
+      sel.value = invBrandFilter;
+      sel.addEventListener('change', ()=>{ invBrandFilter = sel.value; renderInventario(); });
     }
   }
   if(invBrandFilter !== 'all') accs = accs.filter(p=> p.brand===invBrandFilter);
