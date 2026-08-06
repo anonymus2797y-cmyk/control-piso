@@ -519,10 +519,12 @@
   <button class="tab-btn drawer-item" data-view="mes">🗓️ Mes</button>
   <button class="tab-btn drawer-item" data-view="comparativas">🔄 Comparativas</button>
   <button class="tab-btn drawer-item" data-view="cierre">🔒 Cierre</button>
+  <button class="tab-btn drawer-item" data-view="metas">🎯 Metas</button>
+  <div class="drawer-eyebrow">Equipo</div>
+  <button class="tab-btn drawer-item" data-view="ejecutivos">👥 Ejecutivos</button>
+  <button class="tab-btn drawer-item" data-view="gamificacion">🏆 Gamificación</button>
   <div class="drawer-eyebrow">Herramientas</div>
   <button class="tab-btn drawer-item" data-view="ia">🤖 IA</button>
-  <button class="tab-btn drawer-item" data-view="gamificacion">🏆 Gamificación</button>
-  <button class="tab-btn drawer-item" data-view="metas">🎯 Metas</button>
   <button class="tab-btn drawer-item" data-view="inventario">📦 Inventario</button>
   <button class="tab-btn drawer-item" data-view="masivo">📲 Masivo</button>
 </nav>
@@ -533,13 +535,26 @@
     <div style="min-width:0;">
       <h1 id="currentViewLabel">Hoy</h1>
       <span>Portal Lagos de Moreno <span style="opacity:.5;" id="versionTag"></span></span>
+      <div id="topStatusLine" style="font-size:9.5px; color:var(--ink-faint); margin-top:2px; display:flex; gap:9px; flex-wrap:wrap;"></div>
     </div>
   </div>
   <div class="header-controls">
+    <button class="theme-toggle" id="notifBtn" title="Notificaciones" style="position:relative;">
+      🔔<span id="notifBadge" style="display:none; position:absolute; top:2px; right:2px; background:var(--bad); color:#fff; font-size:9px; font-weight:800; min-width:15px; height:15px; border-radius:8px; align-items:center; justify-content:center; padding:0 3px; line-height:1;"></span>
+    </button>
     <button class="theme-toggle" id="logoutBtn" title="Cerrar sesión">🚪</button>
     <button class="theme-toggle" id="themeToggle" title="Cambiar tema">🌙</button>
   </div>
 </header>
+<div id="notifPanel" style="display:none; position:fixed; inset:0; z-index:200; background:rgba(0,0,0,.5);">
+  <div style="background:var(--bg); max-height:75vh; overflow-y:auto; border-radius:0 0 20px 20px; padding:16px 16px 24px; box-shadow:0 10px 30px rgba(0,0,0,.35);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <div style="font-family:'Manrope',sans-serif; font-weight:800; font-size:16px; color:var(--ink);">🔔 Notificaciones</div>
+      <button id="notifCloseBtn" style="background:none;border:none;color:var(--ink-dim);font-size:20px; line-height:1;">✕</button>
+    </div>
+    <div id="notifList"></div>
+  </div>
+</div>
 <div class="daterow">
   <div class="datebar">
     <button class="navbtn" id="prevDay">‹</button>
@@ -613,6 +628,7 @@
     <div class="cards" id="monthExecCards"></div>
     <div class="insight-bar" id="monthInsight"></div>
     <button class="save-btn" id="shareMesBtn">📤 Compartir avance del mes</button>
+    <button class="save-btn" id="exportExcelBtn" style="background:var(--bg-panel); color:var(--ink); border:1px solid var(--line); margin-top:8px;">📊 Exportar a Excel</button>
     <button class="save-btn" id="reporteMesBtn" style="margin-top:8px; background:var(--bg-card); color:var(--ink);">📝 Generar reporte de cierre (WhatsApp)</button>
 
   </section>
@@ -620,6 +636,11 @@
   <!-- COMPARATIVAS -->
   <section class="view" id="view-comparativas">
     <div class="section-title" style="margin-top:0;">🔄 Comparativas · <span id="cmpDateLabel"></span></div>
+    <div class="cmp-card" style="margin-bottom:14px;">
+      <div style="font-size:11px; font-weight:800; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.3px; margin-bottom:8px;">📈 Tendencia — últimos 30 días</div>
+      <div id="cmpTrendStore"></div>
+      <div id="cmpTrendExecs" style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:10px;"></div>
+    </div>
     <div id="cmpCards"></div>
     <div class="insight-bar" id="cmpInsight"></div>
   </section>
@@ -633,6 +654,7 @@
     <div class="section-title">Productividad por ejecutivo</div>
     <div id="cierreProductividad"></div>
     <div id="cierreActions"></div>
+    <div id="cierreAutoReport"></div>
     <button class="save-btn" id="shareCierreBtn">📤 Compartir cierre del día</button>
   </section>
 
@@ -667,6 +689,12 @@
 
     <div class="section-title">🎖️ Insignias del mes</div>
     <div id="gamiBadges"></div>
+  </section>
+
+  <!-- EJECUTIVOS -->
+  <section class="view" id="view-ejecutivos">
+    <div class="section-title" style="margin-top:0;">👥 Fichas del equipo</div>
+    <div id="execFichas"></div>
   </section>
 
   <!-- METAS -->
@@ -913,7 +941,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 73;
+const APP_VERSION = 76;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -1049,6 +1077,10 @@ try{
 let firestoreCache = {};       // in-memory mirror of every doc in the collection, keyed by doc id
 let cloudReady = false;        // true once the first snapshot has arrived
 let initialRenderDone = false;
+let lastSyncAt = null;         // last time a Firestore snapshot came back successfully — powers the "☁️ synced Xm ago" status
+let cloudConnected = true;     // false only while the Firestore listener itself is erroring out
+let isOnline = navigator.onLine; // device-level connectivity, independent of whether Firestore is reachable
+let dismissedNotifKeys = new Set(); // notifications the person already dismissed this session (resets on reload — intentionally simple for a 4-person team)
 
 // Keeps firestoreCache (and therefore every screen) updated live from any device.
 // This is what makes "ejecutivo captura en su teléfono -> Carlos lo ve al instante" work.
@@ -1059,10 +1091,15 @@ function startCloudSync(onUpdate){
       else{ firestoreCache[change.doc.id] = change.doc.data().value; }
     });
     cloudReady = true;
+    lastSyncAt = new Date();
+    cloudConnected = true;
+    renderTopStatus();
     onUpdate();
   }, (err)=>{
     console.error('Error de sincronización con Firestore', err);
     showToast('Sin conexión con la nube — usando datos de este teléfono', true);
+    cloudConnected = false;
+    renderTopStatus();
     // Don't leave the app stuck waiting forever — render with whatever is
     // available locally (e.g. rules not published yet, or no internet).
     onUpdate();
@@ -1086,6 +1123,7 @@ document.addEventListener('input', (e)=>{
 // re-render entirely while the person has a field focused, or while the Mes
 // manual-entry forms have unsaved changes sitting in them.
 function rerenderActiveView(){
+  renderNotifBell();
   const active = document.querySelector('.tab-btn.active');
   if(!active) return;
   const focused = document.activeElement;
@@ -1098,6 +1136,7 @@ function rerenderActiveView(){
   else if(view==='mes') renderMes();
   else if(view==='comparativas') renderComparativas();
   else if(view==='gamificacion') renderGamificacion();
+  else if(view==='ejecutivos') renderEjecutivos();
   else if(view==='cierre') renderCierre();
   else if(view==='inventario') renderInventario();
   else if(view==='masivo') renderMasivo();
@@ -2641,6 +2680,243 @@ function renderGamificacion(){
   }
 }
 
+// ==================== BARRA SUPERIOR INTELIGENTE ====================
+// Connectivity + last-sync status, shown in small text under the store name.
+function renderTopStatus(){
+  const el = document.getElementById('topStatusLine');
+  if(!el) return;
+  isOnline = navigator.onLine;
+  const online = isOnline && cloudConnected;
+  const dot = online ? '🟢' : '🔴';
+  const label = online ? 'En línea' : (isOnline ? 'Sin conexión con la nube' : 'Sin internet');
+  let syncText = 'Aún sin sincronizar';
+  if(lastSyncAt){
+    const mins = Math.floor((Date.now()-lastSyncAt.getTime())/60000);
+    syncText = mins<1 ? 'sincronizado justo ahora' : `sincronizado hace ${mins} min`;
+  }
+  el.innerHTML = `<span>${dot} ${label}</span><span>☁️ ${syncText}</span>`;
+}
+window.addEventListener('online', ()=>{ isOnline=true; renderTopStatus(); });
+window.addEventListener('offline', ()=>{ isOnline=false; renderTopStatus(); });
+
+// ==================== CENTRO DE NOTIFICACIONES ====================
+// Deliberately reuses buildDecisionInsights() instead of its own logic —
+// after the duplication mess we found and fixed with the old storeAlerts
+// card, this stays a thin presentation layer over the one insights engine,
+// not a fourth place that recalculates the same things differently.
+function getAllNotifications(){
+  if(currentRole()!=='gerente') return [];
+  return buildDecisionInsights().map((n,idx)=> ({...n, key: (n.text||'').slice(0,44)+'_'+idx}));
+}
+
+function renderNotifBell(){
+  const badge = document.getElementById('notifBadge');
+  if(!badge) return;
+  const pending = getAllNotifications().filter(n=> !dismissedNotifKeys.has(n.key));
+  if(pending.length>0){
+    badge.textContent = pending.length>9 ? '9+' : pending.length;
+    badge.style.display = 'flex';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function renderNotifPanel(){
+  const listEl = document.getElementById('notifList');
+  if(!listEl) return;
+  const notifs = getAllNotifications();
+  if(notifs.length===0){
+    listEl.innerHTML = `<div class="insight-bar">✅ Sin notificaciones pendientes por ahora.</div>`;
+    return;
+  }
+  listEl.innerHTML = notifs.map(n=>{
+    const dismissed = dismissedNotifKeys.has(n.key);
+    const borderColor = n.level==='bad' ? 'var(--bad)' : n.level==='warn' ? 'var(--acc)' : n.level==='good' ? 'var(--renov)' : 'var(--postpago2)';
+    return `<div style="display:flex; gap:8px; align-items:flex-start; padding:10px 12px; border-radius:12px; background:var(--bg-panel); border:1px solid var(--line); border-left:3px solid ${borderColor}; margin-bottom:8px; opacity:${dismissed?'.45':'1'};">
+      <div style="flex:1; font-size:12.5px; font-weight:600; color:var(--ink);">${n.text}</div>
+      <button class="notif-dismiss-btn" data-key="${n.key}" style="background:none; border:none; color:var(--ink-faint); font-size:15px; flex-shrink:0; padding:0 2px;">${dismissed?'↺':'✕'}</button>
+    </div>`;
+  }).join('');
+  listEl.querySelectorAll('.notif-dismiss-btn').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const key = b.dataset.key;
+      if(dismissedNotifKeys.has(key)) dismissedNotifKeys.delete(key); else dismissedNotifKeys.add(key);
+      renderNotifPanel();
+      renderNotifBell();
+    });
+  });
+}
+
+// ==================== FICHAS DE EJECUTIVOS ====================
+// Pulls together stats that already exist elsewhere in the app (antigüedad,
+// nivel/racha de Gamificación, récord histórico) instead of recomputing them.
+// Fortalezas/áreas de mejora son texto libre que escribe el gerente — la app
+// no le inventa un perfil de personalidad a nadie con datos de ventas.
+function computeExecEspecialidad(execId){
+  const dates = getAllCapturedDates();
+  const totalsByCat = {}; CATS.forEach(c=> totalsByCat[c.id]=0);
+  dates.forEach(d=>{
+    const dv = (loadDay(d)[execId])||{};
+    CATS.forEach(c=> totalsByCat[c.id] += dv[c.id]||0);
+  });
+  let best = null;
+  CATS.forEach(c=>{ if(totalsByCat[c.id]>0 && (!best || totalsByCat[c.id]>best.val)) best = {cat:c, val:totalsByCat[c.id]}; });
+  return best;
+}
+
+function loadExecNotes(execId){
+  const raw = storageGet(`cp_exec_notes_${execId}`);
+  if(raw){ try{ return JSON.parse(raw); }catch(e){} }
+  return {fortalezas:'', mejora:''};
+}
+function saveExecNotes(execId, notes){
+  return storageSet(`cp_exec_notes_${execId}`, JSON.stringify(notes));
+}
+
+function loadExecPhoto(execId){
+  return storageGet(`cp_exec_photo_${execId}`) || null;
+}
+function saveExecPhoto(execId, dataUrl){
+  return storageSet(`cp_exec_photo_${execId}`, dataUrl);
+}
+// Downscales whatever photo gets picked to a small square JPEG before it
+// ever touches Firestore — a phone photo straight from the camera roll can
+// be several MB, and that's real weight sitting in a doc that every device
+// re-downloads. 160x160 at 70% quality is plenty for an avatar and keeps
+// each photo to a few KB.
+function compressPhotoFile(file){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = ()=>{
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = ()=>{
+        const size = 160;
+        const canvas = document.createElement('canvas');
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        const side = Math.min(img.width, img.height);
+        const sx = (img.width-side)/2, sy = (img.height-side)/2;
+        ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// Average of past COMPLETE months (never the current partial one — that
+// would understate every exec until the month is over) so "promedio
+// mensual" means something real, not a number dragged down by day 3.
+function computeExecMonthlyAverage(execId){
+  const dates = getAllCapturedDates();
+  const nowKey = monthKeyFromDate(new Date());
+  const byMonth = {};
+  dates.forEach(d=>{
+    const mk = d.slice(0,7);
+    if(mk===nowKey) return; // exclude the in-progress month
+    byMonth[mk] = (byMonth[mk]||0) + totalFor((loadDay(d)[execId])||{});
+  });
+  const months = Object.keys(byMonth);
+  if(months.length===0) return null;
+  const total = months.reduce((sum,mk)=> sum+byMonth[mk], 0);
+  return Math.round(total/months.length);
+}
+
+function renderEjecutivos(){
+  const el = document.getElementById('execFichas');
+  if(!el) return;
+  const role = currentRole();
+  const hireDates = loadHireDates();
+  const {bestByExec} = computeHistoricalRecords();
+  const dates = getAllCapturedDates();
+  const {execVals} = last30DaysTotals();
+  const palette = ['var(--postpago)','var(--renov)','var(--seguros)','var(--postpago2)'];
+
+  el.innerHTML = EXECS.map((ex,idx)=>{
+    const months = monthsSince(hireDates[ex.id]);
+    const nivel = computeNivel(ex.id);
+    const streak = computeStreak(ex.id);
+    const record = bestByExec[ex.id];
+    const especialidad = computeExecEspecialidad(ex.id);
+    const monthlyAvg = computeExecMonthlyAverage(ex.id);
+    let totalHistorico = 0;
+    dates.forEach(d=> totalHistorico += totalFor((loadDay(d)[ex.id])||{}));
+    const notes = loadExecNotes(ex.id);
+    const photo = loadExecPhoto(ex.id);
+    const initials = ex.name.split(' ').filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    const color = palette[idx % palette.length];
+    const avatarHtml = photo
+      ? `<img src="${photo}" style="width:48px; height:48px; border-radius:50%; object-fit:cover; flex-shrink:0;">`
+      : `<div style="width:48px; height:48px; border-radius:50%; background:${color}; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:16px; flex-shrink:0;">${initials}</div>`;
+    const evolTotal = (execVals[ex.id]||[]).reduce((a,b)=>a+b,0);
+
+    return `
+      <div class="cmp-card" style="margin-bottom:14px;">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+          <label style="position:relative; cursor:${role==='gerente'?'pointer':'default'};">
+            ${avatarHtml}
+            ${role==='gerente' ? `<input type="file" accept="image/*" class="exec-photo-input" data-exec="${ex.id}" style="position:absolute; inset:0; opacity:0; cursor:pointer;">` : ''}
+          </label>
+          <div style="min-width:0;">
+            <div style="font-weight:800; font-size:15px;">${ex.name}</div>
+            <div style="font-size:11px; color:var(--ink-faint);">${months!==null ? `${months} ${months===1?'mes':'meses'} en la tienda` : 'Antigüedad no capturada aún'}</div>
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:10px;">
+          <div style="text-align:center;"><div style="font-size:18px;">${nivel.emoji}</div><div style="font-size:9.5px; color:var(--ink-faint); font-weight:700;">${nivel.label}</div></div>
+          <div style="text-align:center;"><div style="font-size:16px; font-weight:800;">${streak}</div><div style="font-size:9.5px; color:var(--ink-faint); font-weight:700;">🔥 racha</div></div>
+          <div style="text-align:center;"><div style="font-size:16px; font-weight:800;">${totalHistorico}</div><div style="font-size:9.5px; color:var(--ink-faint); font-weight:700;">ventas totales</div></div>
+        </div>
+        ${record && record.total>0 ? `<div style="font-size:11.5px; margin-bottom:6px;">🏆 <b>Récord personal:</b> ${record.total} (${new Date(record.date+'T00:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'short'})})</div>` : ''}
+        <div style="font-size:11.5px; margin-bottom:6px;">📊 <b>Promedio mensual:</b> ${monthlyAvg!==null ? `${monthlyAvg} ventas/mes` : 'aún no hay un mes completo para promediar'}</div>
+        ${especialidad ? `<div style="font-size:11.5px; margin-bottom:10px;">⭐ <b>Especialidad:</b> ${especialidad.cat.label} (${especialidad.val} históricas)</div>` : ''}
+        ${evolTotal>0 ? `
+          <div style="margin-bottom:10px;">
+            <div style="font-size:10px; color:var(--ink-faint); font-weight:700; margin-bottom:3px;">📈 Evolución — 30 días</div>
+            ${buildSparklineSVG(execVals[ex.id], {color, height:32})}
+          </div>` : ''}
+        <div style="border-top:1px solid var(--line); padding-top:10px;">
+          <div style="font-size:10.5px; font-weight:800; color:var(--ink-faint); text-transform:uppercase; margin-bottom:4px;">💪 Fortalezas</div>
+          ${role==='gerente'
+            ? `<textarea class="exec-notes-input" data-exec="${ex.id}" data-field="fortalezas" rows="2" style="width:100%; font-size:12px; padding:8px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--ink); resize:vertical;" placeholder="Escribe una nota...">${notes.fortalezas||''}</textarea>`
+            : `<div style="font-size:12px; color:var(--ink-dim);">${notes.fortalezas || 'Sin notas todavía.'}</div>`}
+          <div style="font-size:10.5px; font-weight:800; color:var(--ink-faint); text-transform:uppercase; margin:8px 0 4px;">📈 Áreas de mejora</div>
+          ${role==='gerente'
+            ? `<textarea class="exec-notes-input" data-exec="${ex.id}" data-field="mejora" rows="2" style="width:100%; font-size:12px; padding:8px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--ink); resize:vertical;" placeholder="Escribe una nota...">${notes.mejora||''}</textarea>`
+            : `<div style="font-size:12px; color:var(--ink-dim);">${notes.mejora || 'Sin notas todavía.'}</div>`}
+        </div>
+      </div>`;
+  }).join('');
+
+  if(role==='gerente'){
+    el.querySelectorAll('.exec-notes-input').forEach(ta=>{
+      ta.addEventListener('change', ()=>{
+        const notes = loadExecNotes(ta.dataset.exec);
+        notes[ta.dataset.field] = ta.value;
+        saveExecNotes(ta.dataset.exec, notes);
+        showToast('Nota guardada ✓');
+      });
+    });
+    el.querySelectorAll('.exec-photo-input').forEach(input=>{
+      input.addEventListener('change', async ()=>{
+        const file = input.files[0];
+        if(!file) return;
+        try{
+          const dataUrl = await compressPhotoFile(file);
+          saveExecPhoto(input.dataset.exec, dataUrl);
+          showToast('Foto guardada ✓');
+          renderEjecutivos();
+        }catch(e){
+          showToast('No se pudo procesar la foto', true);
+        }
+      });
+    });
+  }
+}
+
 function renderMes(){
   const y = mesViewAnchor.getFullYear();
   const m = mesViewAnchor.getMonth();
@@ -2842,6 +3118,42 @@ function closeDay(dateStr){
 function reopenDay(dateStr){
   try{ localStorage.removeItem(`cp_close_${dateStr}`); }
   catch(e){ console.error('No se pudo reabrir el día', e); }
+}
+
+// ==================== AUTOMATIZACIÓN AL CIERRE ====================
+// Fires the moment the day is closed: checks for a broken record and builds
+// the WhatsApp-ready summary right there — no extra trip to the IA tab.
+// Backup/sync already happens continuously via Firestore, so "respaldar" is
+// already covered by the time someone taps Cerrar día; this just adds the
+// two things that genuinely only make sense once the day is final.
+function buildDayCloseMessage(dateStr){
+  const dv = loadDay(dateStr);
+  const commit = loadDayCommit(dateStr);
+  const totals = {}; CATS.forEach(c=> totals[c.id]=0);
+  EXECS.forEach(ex=> CATS.forEach(c=> totals[c.id] += (dv[ex.id]||{})[c.id]||0));
+  const grand = sumVals(totals), commitTotal = sumVals(commit);
+  const pct = commitTotal>0 ? Math.round(grand/commitTotal*100) : 0;
+  const lines = CATS.map(c=> `${c.emoji||''} ${c.label}: ${totals[c.id]||0}/${commit[c.id]||0}`).join('\n');
+  const execLines = EXECS.map(ex=> `${ex.name.split(' ')[0]}: ${totalFor(dv[ex.id]||{})}`).join(' · ');
+  const dateLabel = new Date(dateStr+'T00:00:00').toLocaleDateString('es-MX',{weekday:'long', day:'numeric', month:'long'});
+  return `🌙 CIERRE DEL DÍA — ${dateLabel}\n\n${lines}\n\nTotal: ${grand}/${commitTotal} (${pct}%)\n${execLines}\n\n${pct>=100?'¡Meta cumplida! 🎉':'Vamos por más mañana 💪'}`;
+}
+
+function runCierreAutomation(dateStr){
+  const el = document.getElementById('cierreAutoReport');
+  if(!el) return;
+  const dv = loadDay(dateStr);
+  const recordText = checkPossibleRecordToday(dv);
+  const message = buildDayCloseMessage(dateStr);
+  const encoded = encodeURIComponent(message);
+  el.innerHTML = `
+    ${recordText ? `<div class="insight-bar" style="margin-top:14px;">🏆 ${recordText}.</div>` : ''}
+    <div style="margin-top:14px; background:var(--bg-panel); border:1px solid var(--line); border-radius:12px; padding:12px 14px;">
+      <div style="font-size:10.5px; font-weight:800; color:var(--ink-faint); text-transform:uppercase; margin-bottom:6px;">📤 Reporte del día — listo para compartir</div>
+      <pre style="white-space:pre-wrap; font-size:11.5px; background:var(--bg); padding:10px; border-radius:8px; margin:0 0 8px; color:var(--ink);">${message}</pre>
+      <a href="https://wa.me/?text=${encoded}" target="_blank" style="color:var(--postpago); font-weight:700; text-decoration:underline; font-size:12.5px;">Abrir en WhatsApp →</a>
+    </div>
+  `;
 }
 
 let invBrandFilter = 'all';
@@ -3872,9 +4184,70 @@ function renderCmpCard(data){
     </div>`;
 }
 
+// ==================== GRÁFICAS DE TENDENCIA ====================
+// A dependency-free inline SVG sparkline — no chart library needed for
+// something this simple, and it keeps the single-file/no-build-step setup
+// Carlos relies on for drag-and-drop deploys.
+function buildSparklineSVG(values, opts={}){
+  const w = opts.width||300, h = opts.height||46, color = opts.color||'var(--accent)';
+  if(values.length===0) return '';
+  const max = Math.max(...values, 1);
+  const stepX = values.length>1 ? w/(values.length-1) : 0;
+  const points = values.map((v,i)=>{
+    const x = i*stepX;
+    const y = h - (v/max)*h*0.9 - 2; // 10% headroom so peaks don't touch the top edge
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const lastX = (values.length-1)*stepX;
+  const lastY = h - (values[values.length-1]/max)*h*0.9 - 2;
+  return `<svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="display:block;">
+    <polyline points="${points}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="3" fill="${color}"/>
+  </svg>`;
+}
+
+function last30DaysTotals(){
+  const days = [];
+  const now = new Date();
+  for(let i=29;i>=0;i--){
+    const d = new Date(now); d.setDate(now.getDate()-i);
+    days.push(fmtDate(d));
+  }
+  const storeVals = days.map(ds=> dayTotals(ds).total);
+  const execVals = {};
+  EXECS.forEach(ex=>{
+    execVals[ex.id] = days.map(ds=> totalFor((loadDay(ds)[ex.id])||{}));
+  });
+  return {days, storeVals, execVals};
+}
+
+function renderTrendCharts(){
+  const trendEl = document.getElementById('cmpTrendStore');
+  const execEl = document.getElementById('cmpTrendExecs');
+  if(!trendEl || !execEl) return;
+  const {storeVals, execVals} = last30DaysTotals();
+  const storeTotal30 = storeVals.reduce((a,b)=>a+b,0);
+  if(storeTotal30===0){
+    trendEl.innerHTML = `<div style="font-size:12px; color:var(--ink-faint);">Todavía no hay suficiente historial para graficar una tendencia.</div>`;
+    execEl.innerHTML = '';
+    return;
+  }
+  trendEl.innerHTML = buildSparklineSVG(storeVals, {color:'var(--accent)', height:52});
+  execEl.innerHTML = EXECS.map(ex=>{
+    const vals = execVals[ex.id];
+    const total = vals.reduce((a,b)=>a+b,0);
+    return `<div>
+      <div style="font-size:10px; color:var(--ink-faint); font-weight:700; margin-bottom:3px;">${ex.name.split(' ')[0]}</div>
+      ${buildSparklineSVG(vals, {color:'var(--postpago2)', height:28})}
+    </div>`;
+  }).join('');
+}
+
 function renderComparativas(){
   document.getElementById('cmpDateLabel').textContent =
     currentDate.toLocaleDateString('es-MX', {weekday:'long', day:'numeric', month:'long'});
+
+  renderTrendCharts();
 
   const comparisons = [
     cmpHoyVsAyer(),
@@ -3961,6 +4334,7 @@ function renderCierre(){
         <div class="subtitle">Cerrado a las ${time}</div>
       </div>
     `;
+    if(canManage) runCierreAutomation(dateStr);
     if(canManage){
       actionsEl.innerHTML = `<button class="edit-link" id="reopenDayBtn" style="display:block; margin:0 auto 16px;">✎ Editar</button>`;
       document.getElementById('reopenDayBtn').addEventListener('click', ()=>{
@@ -3971,6 +4345,7 @@ function renderCierre(){
       actionsEl.innerHTML = '';
     }
   } else {
+    document.getElementById('cierreAutoReport').innerHTML = '';
     bannerEl.innerHTML = `
       <div class="close-cta">Cuando terminen el día, cierra para dejar el registro con hora y compararlo contra el compromiso.</div>
     `;
@@ -3978,6 +4353,7 @@ function renderCierre(){
       actionsEl.innerHTML = `<button class="save-btn" id="closeDayBtn">🌙 Cerrar día</button>`;
       document.getElementById('closeDayBtn').addEventListener('click', ()=>{
         closeDay(dateStr);
+        runCierreAutomation(dateStr);
         renderCierre();
       });
     } else {
@@ -4126,6 +4502,46 @@ document.getElementById('shareHoyBtn').addEventListener('click', shareHoy);
 document.getElementById('shareSemanaBtn').addEventListener('click', shareSemana);
 document.getElementById('shareMesBtn').addEventListener('click', shareMes);
 
+function exportMesToExcel(){
+  if(typeof XLSX === 'undefined'){
+    showToast('Se necesita conexión a internet para exportar', true);
+    return;
+  }
+  const anchor = mesViewAnchor || new Date();
+  const y = anchor.getFullYear(), m = anchor.getMonth();
+  const isCurrentMonth = (new Date().getFullYear()===y && new Date().getMonth()===m);
+  const daysToCount = isCurrentMonth ? new Date().getDate() : new Date(y, m+1, 0).getDate();
+  const execTotals = computeExecMonthTotals(y, m, daysToCount);
+  const cuota = loadCuota(monthKeyFromDate(anchor));
+  const splitPerCat = {}; CATS.forEach(c=> splitPerCat[c.id] = splitEvenly(cuota[c.id]||0, EXECS.length));
+
+  const rows = [];
+  rows.push(['Ejecutivo', ...CATS.map(c=>c.label), 'Total']);
+  EXECS.forEach((ex,idx)=>{
+    const et = execTotals[ex.id];
+    rows.push([ex.name, ...CATS.map(c=> et[c.id]||0), sumVals(et)]);
+  });
+  const teamRow = ['TOTAL EQUIPO'];
+  let teamGrand = 0;
+  CATS.forEach(c=>{
+    const t = EXECS.reduce((sum,ex)=> sum + (execTotals[ex.id][c.id]||0), 0);
+    teamGrand += t;
+    teamRow.push(t);
+  });
+  teamRow.push(teamGrand);
+  rows.push(teamRow);
+  rows.push([]);
+  rows.push(['Meta del mes', ...CATS.map(c=> cuota[c.id]||0), sumVals(cuota)]);
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  const monthLabel = anchor.toLocaleDateString('es-MX', {month:'long', year:'numeric'});
+  XLSX.utils.book_append_sheet(wb, ws, 'Resumen del mes');
+  XLSX.writeFile(wb, `Control-de-Piso-${monthLabel.replace(/\s/g,'-')}.xlsx`);
+  showToast('Excel descargado ✓');
+}
+document.getElementById('exportExcelBtn').addEventListener('click', exportMesToExcel);
+
 // ---- NAV / TABS ----
 function setDate(d){
   flushPendingSave();
@@ -4135,7 +4551,7 @@ function setDate(d){
   if(document.getElementById('view-cierre').classList.contains('active')){ renderCierre(); }
 }
 
-const TAB_LABELS = {hoy:'Hoy', semana:'Semana', mes:'Mes', comparativas:'Comparativas', cierre:'Cierre', ia:'IA', gamificacion:'Gamificación', metas:'Metas', inventario:'Inventario', masivo:'Masivo'};
+const TAB_LABELS = {hoy:'Hoy', semana:'Semana', mes:'Mes', comparativas:'Comparativas', cierre:'Cierre', ia:'IA', gamificacion:'Gamificación', ejecutivos:'Ejecutivos', metas:'Metas', inventario:'Inventario', masivo:'Masivo'};
 function closeDrawer(){
   document.getElementById('drawerNav').classList.remove('open');
   document.getElementById('drawerOverlay').classList.remove('open');
@@ -4162,6 +4578,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     if(btn.dataset.view==='mes'){ mesViewAnchor = new Date(currentDate); renderMes(); }
     if(btn.dataset.view==='comparativas'){ renderComparativas(); }
     if(btn.dataset.view==='gamificacion'){ renderGamificacion(); }
+    if(btn.dataset.view==='ejecutivos'){ renderEjecutivos(); }
     if(btn.dataset.view==='cierre'){ renderCierre(); }
     if(btn.dataset.view==='inventario'){ renderInventario(); }
     if(btn.dataset.view==='masivo'){ renderMasivo(); }
@@ -4241,6 +4658,19 @@ document.getElementById('themeToggle').addEventListener('click', ()=>{
   applyTheme(next);
   try{ localStorage.setItem('cp_theme', next); }catch(e){}
 });
+
+document.getElementById('notifBtn').addEventListener('click', ()=>{
+  renderNotifPanel();
+  document.getElementById('notifPanel').style.display = 'block';
+});
+document.getElementById('notifCloseBtn').addEventListener('click', ()=>{
+  document.getElementById('notifPanel').style.display = 'none';
+  renderNotifBell(); // badge count may have changed from dismissals made inside
+});
+document.getElementById('notifPanel').addEventListener('click', (e)=>{
+  if(e.target.id==='notifPanel') document.getElementById('notifPanel').style.display = 'none';
+});
+setInterval(renderTopStatus, 30000); // keeps "hace X min" honest even when nothing else triggers a re-render
 
 // ---- IA ASSISTANT (gerente only) ----
 // This is a rule-based assistant that reads the app's own stored data and
@@ -5000,17 +5430,61 @@ document.getElementById('inv-import-file').addEventListener('change', (e)=>{
 document.getElementById('inv-bajio-search').addEventListener('input', ()=> renderBajioCatalog());
 document.getElementById('inv-bajio-store').addEventListener('change', ()=> renderBajioCatalog());
 
+const WHATSAPP_MESSAGE_TYPES = [
+  {key:'corto', label:'Corto', emoji:'⚡'},
+  {key:'premium', label:'Premium', emoji:'💎'},
+  {key:'agresivo', label:'Urgente', emoji:'🔥'},
+  {key:'formal', label:'Formal', emoji:'🎩'},
+  {key:'seguimiento', label:'Seguimiento cliente', emoji:'📞'},
+  {key:'renovacion', label:'Renovación', emoji:'♻️'},
+  {key:'venta_cruzada', label:'Venta cruzada', emoji:'🔀'}
+];
+
 function iaGenerarMensajeWhatsApp(){
+  const chips = WHATSAPP_MESSAGE_TYPES.map(t=>
+    `<button class="ia-tone-btn" data-tone="${t.key}" style="font-size:11.5px; font-weight:700; padding:6px 11px; border-radius:20px; background:var(--bg-card); border:1px solid var(--line); color:var(--ink); cursor:pointer;">${t.emoji} ${t.label}</button>`
+  ).join('');
+  return `📱 ¿Qué tipo de mensaje armo?<br><div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">${chips}</div>`;
+}
+
+// The first 4 (corto/premium/agresivo/formal) are the same team-progress
+// report in a different voice. The last 3 are customer-facing templates —
+// there's no specific client on file to pull from, so they use [Nombre]
+// placeholders for the exec to fill in, same as any WhatsApp template.
+function buildWhatsAppMessage(toneKey){
   const dayVals = loadDay(fmtDate(new Date()));
   const totals = {postpago:0, postpago_servicio:0, renov:0, prepago:0, seguros:0, acc:0};
-  EXECS.forEach(ex=> CATS.forEach(c=> totals[c.id] += dayVals[ex.id][c.id]||0));
+  EXECS.forEach(ex=> CATS.forEach(c=> totals[c.id] += (dayVals[ex.id]||{})[c.id]||0));
   const commit = loadDayCommit(fmtDate(new Date()));
   const grand = sumVals(totals), commitTotal = sumVals(commit);
   const pct = commitTotal>0 ? Math.round(grand/commitTotal*100) : 0;
   const lines = CATS.map(c=> `${c.label}: ${totals[c.id]||0}/${commit[c.id]||0}`).join('\n');
-  const text = `📊 Avance de hoy — Equipo\n${lines}\nTotal: ${grand}/${commitTotal} (${pct}%)\n¡Vamos con todo! 💪`;
+
+  switch(toneKey){
+    case 'corto':
+      return `📊 Hoy: ${grand}/${commitTotal} (${pct}%). ¡Vamos con todo! 💪`;
+    case 'premium':
+      return `✨ Reporte del equipo — Portal Lagos de Moreno\n\n${lines}\n\nTotal: ${grand}/${commitTotal} (${pct}%)\n\nGran trabajo hasta ahora, sigamos con el mismo nivel el resto del día. 🚀`;
+    case 'agresivo':
+      return `🚨 ATENCIÓN EQUIPO 🚨\nVamos en ${pct}% de la meta (${grand}/${commitTotal}).\n${pct<80 ? 'Necesitamos ACELERAR ya — cada cliente cuenta.' : '¡Vamos arriba, no bajemos el ritmo!'}\n${lines}\n¡A cerrar el día con todo! 🔥`;
+    case 'formal':
+      return `Estimado equipo:\n\nLes comparto el avance del día:\n${lines}\n\nTotal acumulado: ${grand} de ${commitTotal} (${pct}%).\n\nGracias por su esfuerzo.\nSaludos.`;
+    case 'seguimiento':
+      return `Hola [Nombre] 👋, soy [Tu nombre] de AT&T Portal Lagos de Moreno. Quería darle seguimiento a lo que platicamos — ¿tuvo oportunidad de pensarlo? Con gusto resuelvo cualquier duda que le haya quedado.`;
+    case 'renovacion':
+      return `Hola [Nombre] 👋, le escribo porque su línea con AT&T ya es candidata a renovación con equipo nuevo. Tenemos promociones vigentes este mes — ¿le gustaría que le platique las opciones disponibles para su plan?`;
+    case 'venta_cruzada':
+      return `Hola [Nombre] 👋, qué bueno que ya se lleva su equipo nuevo. Le comento que tenemos [accesorio/seguro] con buen descuento para protegerlo/complementarlo — ¿le interesa que se lo agregue a su compra de hoy?`;
+    default:
+      return `📊 Hoy: ${grand}/${commitTotal} (${pct}%).`;
+  }
+}
+
+function runWhatsAppTone(toneKey){
+  const text = buildWhatsAppMessage(toneKey);
   const encoded = encodeURIComponent(text);
-  return `📱 Mensaje listo para enviar:<br><pre style="white-space:pre-wrap; background:var(--bg); padding:10px; border-radius:8px; font-size:11.5px;">${text}</pre><a href="https://wa.me/?text=${encoded}" target="_blank" style="color:var(--postpago); font-weight:700; text-decoration:underline;">Abrir en WhatsApp →</a>`;
+  const html = `📱 Mensaje listo:<br><pre style="white-space:pre-wrap; background:var(--bg); padding:10px; border-radius:8px; font-size:11.5px;">${text}</pre><a href="https://wa.me/?text=${encoded}" target="_blank" style="color:var(--postpago); font-weight:700; text-decoration:underline;">Abrir en WhatsApp →</a>`;
+  addIaMessage(html, false);
 }
 
 function runIaAction(key, labelText){
@@ -5048,6 +5522,11 @@ function runIaAction(key, labelText){
   }
   addIaMessage(response, false);
 }
+
+document.getElementById('iaConversation').addEventListener('click', (e)=>{
+  const btn = e.target.closest('.ia-tone-btn');
+  if(btn) runWhatsAppTone(btn.dataset.tone);
+});
 
 function iaMatchFreeText(text){
   const t = text.toLowerCase();
@@ -5204,6 +5683,8 @@ function checkForUpdate(){
   initTheme();
   populateExecSwitch();
   renderIaQuickCards();
+  renderTopStatus();
+  renderNotifBell();
   if(isLoggedIn()){ hideLogin(); }
   checkForUpdate();
   setInterval(checkForUpdate, 3 * 60 * 1000); // re-check every 3 minutes while the app is open
