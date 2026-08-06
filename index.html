@@ -24,16 +24,6 @@
     --seguros: #22d3ee;
     --acc: #fbbf24;
     --bad: #fb5568;
-    --hero-bg: linear-gradient(135deg, var(--accent), var(--postpago2));
-    --hero-text: #ffffff;
-    --hero-text-dim: rgba(255,255,255,.85);
-    --hero-text-faint: rgba(255,255,255,.8);
-    --hero-line: rgba(255,255,255,.25);
-    --hero-progress-track: rgba(255,255,255,.25);
-    --hero-progress-fill: #ffffff;
-    --hero-alert-bg: rgba(0,0,0,.18);
-    --hero-shadow: none;
-    --hero-border: none;
     --radius: 16px;
     --shadow: none;
     --body-bg:
@@ -59,16 +49,6 @@
     --seguros: #0d94a8;
     --acc: #d98a10;
     --bad: #e0384f;
-    --hero-bg: var(--bg-panel);
-    --hero-text: var(--ink);
-    --hero-text-dim: var(--ink-dim);
-    --hero-text-faint: var(--ink-faint);
-    --hero-line: var(--line);
-    --hero-progress-track: var(--line);
-    --hero-progress-fill: linear-gradient(90deg, var(--accent), var(--postpago2));
-    --hero-alert-bg: var(--bg-card);
-    --hero-shadow: var(--shadow);
-    --hero-border: 1px solid var(--line);
     --shadow: 0 1px 3px rgba(20,40,70,.07);
     --body-bg:
       radial-gradient(1100px 550px at 100% -10%, #e3f1fa 0%, transparent 60%),
@@ -237,22 +217,6 @@
   .kpi.seguros .val{color:var(--seguros);}
   .kpi.acc .val{color:var(--acc);}
   .kpi.total .val{color:var(--accent);}
-
-  .cmp-card{
-    background:var(--bg-panel); border:1px solid var(--line); border-radius:var(--radius);
-    padding:13px 14px; margin-bottom:10px; box-shadow:var(--shadow);
-  }
-  .cmp-card .cmp-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;}
-  .cmp-card .cmp-title{font-size:13px; font-weight:800;}
-  .cmp-card .cmp-pill{font-size:11px; font-weight:800; padding:3px 9px; border-radius:20px;}
-  .cmp-card .cmp-totals{display:flex; align-items:baseline; gap:8px; margin-bottom:6px;}
-  .cmp-card .cmp-cur{font-size:22px; font-weight:800;}
-  .cmp-card .cmp-vs{font-size:11.5px; color:var(--ink-faint); font-weight:600;}
-  .cmp-card .cmp-empty{font-size:12.5px; color:var(--ink-faint); padding:6px 0; line-height:1.5;}
-  .cmp-cat-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-top:10px;}
-  .cmp-cat{font-size:10.5px; padding:6px 7px; border-radius:8px; background:var(--bg-card); border:1px solid var(--line);}
-  .cmp-cat .cmp-cat-label{color:var(--ink-dim); font-weight:700; display:flex; align-items:center; gap:4px; margin-bottom:2px;}
-  .cmp-cat .cmp-cat-val{font-weight:800; font-size:12px;}
 
   .cards{display:grid; grid-template-columns:repeat(3,1fr); gap:10px;}
   .card{
@@ -517,7 +481,6 @@
   <button class="tab-btn drawer-item active" data-view="hoy">📋 Hoy</button>
   <button class="tab-btn drawer-item" data-view="semana">📅 Semana</button>
   <button class="tab-btn drawer-item" data-view="mes">🗓️ Mes</button>
-  <button class="tab-btn drawer-item" data-view="comparativas">🔄 Comparativas</button>
   <button class="tab-btn drawer-item" data-view="cierre">🔒 Cierre</button>
   <div class="drawer-eyebrow">Herramientas</div>
   <button class="tab-btn drawer-item" data-view="ia">🤖 IA</button>
@@ -555,6 +518,7 @@
   <!-- HOY -->
   <section class="view active" id="view-hoy">
     <div id="greetingHero"></div>
+    <div id="execCoach"></div>
     <div id="storeAlerts"></div>
     <div id="dashboardSummary"></div>
     <div id="execSwitchWrap" style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
@@ -614,13 +578,6 @@
     <button class="save-btn" id="shareMesBtn">📤 Compartir avance del mes</button>
     <button class="save-btn" id="reporteMesBtn" style="margin-top:8px; background:var(--bg-card); color:var(--ink);">📝 Generar reporte de cierre (WhatsApp)</button>
 
-  </section>
-
-  <!-- COMPARATIVAS -->
-  <section class="view" id="view-comparativas">
-    <div class="section-title" style="margin-top:0;">🔄 Comparativas · <span id="cmpDateLabel"></span></div>
-    <div id="cmpCards"></div>
-    <div class="insight-bar" id="cmpInsight"></div>
   </section>
 
   <!-- CIERRE -->
@@ -709,6 +666,12 @@
       <div class="row"><label>Godoy</label><input type="date" id="hire-godoy"></div>
       <div class="goals-note">Se usa solo para mostrar "X meses" en el reporte de cierre de mes. Si la dejas vacía para alguien, simplemente no se muestra su antigüedad.</div>
     </div>
+
+    <div class="section-title">🏆 Salón de la fama</div>
+    <div id="recordsSection"></div>
+
+    <div class="section-title">📊 Estadísticas avanzadas</div>
+    <div id="advancedStats"></div>
   </section>
 
   <!-- INVENTARIO -->
@@ -894,7 +857,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 69;
+const APP_VERSION = 71;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -1066,7 +1029,6 @@ function rerenderActiveView(){
   if(view==='hoy') renderHoy();
   else if(view==='semana') renderSemana();
   else if(view==='mes') renderMes();
-  else if(view==='comparativas') renderComparativas();
   else if(view==='cierre') renderCierre();
   else if(view==='inventario') renderInventario();
   else if(view==='masivo') renderMasivo();
@@ -1581,6 +1543,229 @@ function computeNivel(execId){
 
 // Last 3 days vs the 3 days before that, both ending yesterday (today is
 // still in progress so it's excluded to keep the comparison fair).
+// Longest run of "met their fair share" days this exec has EVER had, not
+// just their current streak — scans further back and remembers the best run.
+function computeLongestStreakEver(execId){
+  let longest = 0, current = 0;
+  const d = new Date();
+  for(let i=0; i<120; i++){
+    d.setDate(d.getDate()-1);
+    const dateStr = fmtDate(d);
+    const statusThatDay = loadDayStatus(dateStr)[execId] || 'piso';
+    if(statusThatDay !== 'piso' && statusThatDay !== 'comida') continue;
+    const commit = loadDayCommit(dateStr);
+    const totalCommit = sumVals(commit);
+    if(totalCommit<=0){ current = 0; continue; }
+    const activeIdsThatDay = getActiveExecIds(dateStr);
+    const fairShare = totalCommit / Math.max(1, activeIdsThatDay.length);
+    const execTotal = totalFor(loadDay(dateStr)[execId]);
+    if(execTotal >= fairShare){ current++; longest = Math.max(longest, current); }
+    else { current = 0; }
+  }
+  return longest;
+}
+
+// Scans the last ~120 days of real data for the best single day, best
+// week, the team's longest-ever streak, and a top-10 list of best days —
+// a simple "hall of fame" that gets more interesting the longer the store
+// uses the app.
+function getHistoricalRecords(){
+  const today = new Date();
+  const days = [];
+  for(let i=0; i<120; i++){
+    const d = new Date(today); d.setDate(today.getDate()-i);
+    const dateStr = fmtDate(d);
+    const total = totalForDate(dateStr);
+    if(total>0) days.push({date: d, dateStr, total});
+  }
+  days.sort((a,b)=> b.total-a.total);
+  const bestDay = days[0] || null;
+  const top10 = days.slice(0,10);
+
+  // Best week: sum Mon-Sun for each of the last ~17 weeks.
+  let bestWeek = null;
+  const thisMonday = getMonday(today);
+  for(let w=0; w<17; w++){
+    const monday = new Date(thisMonday); monday.setDate(thisMonday.getDate()-7*w);
+    let sum = 0;
+    for(let i=0;i<7;i++){
+      const d = new Date(monday); d.setDate(monday.getDate()+i);
+      if(d>today) break;
+      sum += totalForDate(fmtDate(d));
+    }
+    if(sum>0 && (!bestWeek || sum>bestWeek.total)){
+      const sunday = new Date(monday); sunday.setDate(monday.getDate()+6);
+      bestWeek = {monday, sunday, total: sum};
+    }
+  }
+
+  const streaks = EXECS.map(ex=> ({ex, streak: computeLongestStreakEver(ex.id)})).sort((a,b)=> b.streak-a.streak);
+  const bestStreak = streaks[0] && streaks[0].streak>0 ? streaks[0] : null;
+
+  return {bestDay, bestWeek, bestStreak, top10};
+}
+
+function renderRecords(){
+  const el = document.getElementById('recordsSection');
+  if(!el) return;
+  const r = getHistoricalRecords();
+  if(!r.bestDay){
+    el.innerHTML = `<div class="insight-bar">Aún no hay suficiente historial para armar el salón de la fama — vuelve cuando lleven algunos días capturando.</div>`;
+    return;
+  }
+  const fmtDayLabel = (d)=> d.toLocaleDateString('es-MX', {weekday:'long', day:'numeric', month:'long'});
+
+  el.innerHTML = `
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px;">
+      <div style="background:var(--bg-panel); border:1px solid var(--line); border-radius:14px; padding:14px;">
+        <div style="font-size:10px; font-weight:800; color:var(--ink-faint); text-transform:uppercase;">🥇 Mejor día</div>
+        <div style="font-size:22px; font-weight:800; font-family:'Manrope',sans-serif; margin-top:4px;">${r.bestDay.total}</div>
+        <div style="font-size:11px; color:var(--ink-dim); margin-top:2px;">${fmtDayLabel(r.bestDay.date)}</div>
+      </div>
+      <div style="background:var(--bg-panel); border:1px solid var(--line); border-radius:14px; padding:14px;">
+        <div style="font-size:10px; font-weight:800; color:var(--ink-faint); text-transform:uppercase;">📅 Mejor semana</div>
+        <div style="font-size:22px; font-weight:800; font-family:'Manrope',sans-serif; margin-top:4px;">${r.bestWeek ? r.bestWeek.total : '—'}</div>
+        <div style="font-size:11px; color:var(--ink-dim); margin-top:2px;">${r.bestWeek ? `${r.bestWeek.monday.toLocaleDateString('es-MX',{day:'numeric',month:'short'})} – ${r.bestWeek.sunday.toLocaleDateString('es-MX',{day:'numeric',month:'short'})}` : 'Sin datos aún'}</div>
+      </div>
+    </div>
+    ${r.bestStreak ? `
+      <div style="background:var(--bg-panel); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px;">
+        <div style="font-size:10px; font-weight:800; color:var(--ink-faint); text-transform:uppercase;">🔥 Racha más larga</div>
+        <div style="font-size:15px; font-weight:800; margin-top:4px;">${r.bestStreak.ex.name} — ${r.bestStreak.streak} día${r.bestStreak.streak===1?'':'s'} seguidos cumpliendo su meta</div>
+      </div>
+    ` : ''}
+    <div class="section-title" style="margin-top:4px;">🏅 Top 10 mejores días</div>
+    ${r.top10.map((d,i)=>{
+      const medals = ['🥇','🥈','🥉'];
+      return `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:var(--bg-panel); border:1px solid var(--line); border-radius:12px; margin-bottom:6px;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="font-size:14px; font-weight:800; width:22px;">${medals[i]||(i+1)}</span>
+            <span style="font-size:12.5px; color:var(--ink-dim);">${fmtDayLabel(d.date)}</span>
+          </div>
+          <span style="font-size:15px; font-weight:800;">${d.total}</span>
+        </div>
+      `;
+    }).join('')}
+  `;
+}
+
+// Pulls together the "Power BI-lite" numbers: a 30-day trend, conversion
+// rate per exec, attachment rates (seguro/accesorio per línea), average
+// renewals per week, and — only if commission rates are configured in
+// Metas — an average commission per sale as a stand-in for "ticket
+// promedio" (we don't capture peso amounts per sale, so a real average
+// ticket isn't something this app can honestly compute without that).
+function getAdvancedStats(){
+  const today = new Date();
+
+  const trend = [];
+  for(let i=29;i>=0;i--){
+    const d = new Date(today); d.setDate(today.getDate()-i);
+    trend.push({date:d, total: totalForDate(fmtDate(d))});
+  }
+
+  const conv = EXECS.map(ex=>{
+    let cotiz=0, cerrado=0;
+    for(let i=0;i<30;i++){
+      const d = new Date(today); d.setDate(today.getDate()-i);
+      const rec = loadDay(fmtDate(d))[ex.id]||{};
+      cotiz += (rec.cotizPiso||0)+(rec.cotizCita||0);
+      cerrado += (rec.cerradoPiso||0)+(rec.cerradoCita||0);
+    }
+    return {ex, cotiz, cerrado, rate: cotiz>0 ? cerrado/cotiz : 0};
+  }).sort((a,b)=> b.rate-a.rate);
+
+  let lineas=0, seguros=0, accesorios=0;
+  const commRates = loadCommissionRates();
+  const hasCommission = CATS.some(c=> (commRates[c.id]||0)>0);
+  let totalComm=0, totalSales=0;
+  for(let i=0;i<30;i++){
+    const d = new Date(today); d.setDate(today.getDate()-i);
+    const dv = loadDay(fmtDate(d));
+    EXECS.forEach(ex=>{
+      const rec = dv[ex.id]||{};
+      lineas += (rec.postpago||0)+(rec.postpago_servicio||0);
+      seguros += rec.seguros||0;
+      accesorios += rec.acc||0;
+      CATS.forEach(c=>{ totalComm += (rec[c.id]||0)*(commRates[c.id]||0); totalSales += rec[c.id]||0; });
+    });
+  }
+  const seguroPorLinea = lineas>0 ? seguros/lineas : 0;
+  const accPorLinea = lineas>0 ? accesorios/lineas : 0;
+  const avgCommission = (hasCommission && totalSales>0) ? totalComm/totalSales : null;
+
+  const monday = getMonday(today);
+  let renovWeekSum=0, weeksCounted=0;
+  for(let w=0; w<4; w++){
+    const wMonday = new Date(monday); wMonday.setDate(monday.getDate()-7*w);
+    let weekRenov=0, hadAnyDay=false;
+    for(let i=0;i<7;i++){
+      const d = new Date(wMonday); d.setDate(wMonday.getDate()+i);
+      if(d>today) continue;
+      hadAnyDay = true;
+      const dv = loadDay(fmtDate(d));
+      EXECS.forEach(ex=> weekRenov += (dv[ex.id]||{}).renov||0);
+    }
+    if(hadAnyDay){ renovWeekSum += weekRenov; weeksCounted++; }
+  }
+  const renovPromedioSemanal = weeksCounted>0 ? renovWeekSum/weeksCounted : 0;
+
+  return {trend, conv, seguroPorLinea, accPorLinea, renovPromedioSemanal, avgCommission};
+}
+
+function renderAdvancedStats(){
+  const el = document.getElementById('advancedStats');
+  if(!el) return;
+  const s = getAdvancedStats();
+
+  const maxTrend = Math.max(1, ...s.trend.map(t=>t.total));
+  const bars = s.trend.map(t=> `<div title="${fmtDate(t.date)}: ${t.total}" style="flex:1; height:${Math.max(3, Math.round((t.total/maxTrend)*100))}%; background:var(--accent); border-radius:2px 2px 0 0; opacity:${t.total===0?0.15:1};"></div>`).join('');
+
+  const convLines = s.conv.map((c,i)=>{
+    const medal = i===0 && c.rate>0 ? '⭐ ' : '';
+    return `<div style="display:flex; justify-content:space-between; padding:8px 0; border-top:1px solid var(--line); font-size:12.5px;"><span>${medal}${c.ex.name}</span><span style="font-weight:800;">${Math.round(c.rate*100)}%</span></div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div style="background:var(--bg-panel); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px;">
+      <div style="font-size:10px; font-weight:800; color:var(--ink-faint); text-transform:uppercase; margin-bottom:10px;">📈 Tendencia — últimos 30 días</div>
+      <div style="display:flex; align-items:flex-end; gap:2px; height:60px;">${bars}</div>
+    </div>
+
+    <div style="background:var(--bg-panel); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px;">
+      <div style="font-size:10px; font-weight:800; color:var(--ink-faint); text-transform:uppercase; margin-bottom:4px;">🏆 Conversión por ejecutivo <span style="font-weight:600; text-transform:none;">(cotización → cierre, 30 días)</span></div>
+      ${convLines || '<div style="font-size:12px; color:var(--ink-faint); padding:8px 0;">Aún no hay cotizaciones registradas.</div>'}
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px;">
+      <div style="background:var(--bg-panel); border:1px solid var(--line); border-radius:14px; padding:14px;">
+        <div style="font-size:10px; font-weight:800; color:var(--ink-faint); text-transform:uppercase;">🛡️ Seguro por línea</div>
+        <div style="font-size:20px; font-weight:800; font-family:'Manrope',sans-serif; margin-top:4px;">${(s.seguroPorLinea*100).toFixed(0)}%</div>
+      </div>
+      <div style="background:var(--bg-panel); border:1px solid var(--line); border-radius:14px; padding:14px;">
+        <div style="font-size:10px; font-weight:800; color:var(--ink-faint); text-transform:uppercase;">🎧 Accesorio por línea</div>
+        <div style="font-size:20px; font-weight:800; font-family:'Manrope',sans-serif; margin-top:4px;">${(s.accPorLinea*100).toFixed(0)}%</div>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:${s.avgCommission!==null?'1fr 1fr':'1fr'}; gap:8px;">
+      <div style="background:var(--bg-panel); border:1px solid var(--line); border-radius:14px; padding:14px;">
+        <div style="font-size:10px; font-weight:800; color:var(--ink-faint); text-transform:uppercase;">♻️ Renovaciones / semana</div>
+        <div style="font-size:20px; font-weight:800; font-family:'Manrope',sans-serif; margin-top:4px;">${s.renovPromedioSemanal.toFixed(1)}</div>
+        <div style="font-size:10px; color:var(--ink-faint); margin-top:2px;">promedio, últimas 4 semanas</div>
+      </div>
+      ${s.avgCommission!==null ? `
+        <div style="background:var(--bg-panel); border:1px solid var(--line); border-radius:14px; padding:14px;">
+          <div style="font-size:10px; font-weight:800; color:var(--ink-faint); text-transform:uppercase;">💰 Comisión promedio/venta</div>
+          <div style="font-size:20px; font-weight:800; font-family:'Manrope',sans-serif; margin-top:4px;">$${s.avgCommission.toFixed(0)}</div>
+          <div style="font-size:10px; color:var(--ink-faint); margin-top:2px;">últimos 30 días</div>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
 function computeTendencia(execId){
   function sumRange(startAgo, endAgo){
     let sum = 0;
@@ -1866,12 +2051,81 @@ function renderHoy(){
   dayData = loadDay(dateStr);
   currentDayCommit = loadDayCommit(dateStr);
   renderGreetingHero();
+  renderExecCoach();
   renderStoreAlerts();
   renderDashboardSummary();
   renderCommitForm();
   renderKPIs();
   renderCards();
   renderInsight();
+}
+
+// A personal coaching tip for each exec: today's individual goal, their
+// weakest category based on their own 30-day history, and a concrete
+// suggestion — the same spirit as a manager pulling someone aside for 30
+// seconds, not another dashboard to read.
+const IA_COACH_TIPS = {
+  postpago: 'intenta ofrecer un plan superior justo al presentar el equipo.',
+  postpago_servicio: 'ofrece portabilidad o cambio de plan sin equipo nuevo — no siempre hace falta vender un teléfono.',
+  renov: 'revisa qué clientes tienes con el contrato por vencer y márcales primero.',
+  seguros: 'ofrécelo justo después de presentar el equipo, antes de hablar de precio.',
+  acc: 'sugiere un accesorio al momento de cerrar cualquier venta, no antes.',
+  prepago: 'ofrece una línea adicional o recarga a quien acompañe al cliente.'
+};
+
+function renderExecCoach(){
+  const el = document.getElementById('execCoach');
+  if(!el) return;
+
+  const isToday = fmtDate(currentDate) === fmtDate(new Date());
+  const session = getSession();
+  const role = currentRole();
+  const execInfo = EXECS.find(e=>e.id===session);
+  if(!isToday || role!=='exec' || !execInfo){ el.innerHTML = ''; return; }
+
+  const todayStr = fmtDate(new Date());
+  const activeIds = getActiveExecIds(todayStr);
+  const activeCount = Math.max(1, activeIds.length);
+  const myIdx = activeIds.indexOf(execInfo.id);
+
+  const goalToday = {};
+  CATS.forEach(c=>{
+    const split = splitEvenly(currentDayCommit[c.id]||0, activeCount);
+    goalToday[c.id] = myIdx>=0 ? (split[myIdx]||0) : Math.round((currentDayCommit[c.id]||0)/activeCount);
+  });
+
+  const sums = {}; CATS.forEach(c=> sums[c.id]=0);
+  let daysCounted = 0;
+  const today = new Date();
+  for(let i=1;i<=30;i++){
+    const d = new Date(today); d.setDate(today.getDate()-i);
+    const dv = loadDay(fmtDate(d));
+    const rec = dv[execInfo.id];
+    if(rec){ CATS.forEach(c=> sums[c.id] += rec[c.id]||0); daysCounted++; }
+  }
+  const avg = {}; CATS.forEach(c=> avg[c.id] = daysCounted>0 ? sums[c.id]/daysCounted : 0);
+
+  let weakest = null;
+  CATS.forEach(c=>{
+    const goal = goalToday[c.id]||0;
+    if(goal<=0) return;
+    const ratio = avg[c.id]/goal;
+    if(!weakest || ratio<weakest.ratio) weakest = {cat:c, ratio, avg: avg[c.id]};
+  });
+
+  const goalLines = CATS.filter(c=> goalToday[c.id]>0).map(c=> `${goalToday[c.id]} ${c.label.toLowerCase()}`).join(' · ');
+
+  el.innerHTML = `
+    <div style="background:var(--bg-panel); border:1px solid var(--line); border-radius:16px; padding:16px 18px; margin-bottom:16px;">
+      <div style="font-size:11px; font-weight:800; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.4px; margin-bottom:8px;">🎯 Tu objetivo de hoy</div>
+      <div style="font-size:14px; font-weight:700;">${goalLines || 'Aún no se ha definido el compromiso de hoy.'}</div>
+      ${weakest && daysCounted>=5 ? `
+        <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--line); font-size:12.5px; color:var(--ink-dim); line-height:1.5;">
+          💡 Tu promedio de <b>${weakest.cat.label.toLowerCase()}</b> es de ${weakest.avg.toFixed(1)} al día. ${IA_COACH_TIPS[weakest.cat.id] || ''}
+        </div>
+      ` : ''}
+    </div>
+  `;
 }
 
 // A quick, color-coded scan of things worth a manager's attention right
@@ -2009,36 +2263,36 @@ function renderGreetingHero(){
   const inactivity = role==='gerente' ? getInactivityAlerts() : [];
 
   el.innerHTML = `
-    <div style="background:var(--hero-bg); border:var(--hero-border); box-shadow:var(--hero-shadow); border-radius:20px; padding:22px 20px; margin-bottom:16px; color:var(--hero-text);">
+    <div style="background:linear-gradient(135deg, var(--accent), var(--postpago2)); border-radius:20px; padding:22px 20px; margin-bottom:16px; color:#fff;">
       <div style="font-family:'Manrope',sans-serif; font-weight:800; font-size:19px;">${timeEmoji} ${timeGreeting}${firstName?', '+firstName:''} 👋</div>
-      <div style="font-size:12.5px; color:var(--hero-text-dim); margin-top:2px; margin-bottom:16px;">Esto es lo que llevan hoy:</div>
+      <div style="font-size:12.5px; opacity:.85; margin-top:2px; margin-bottom:16px;">Esto es lo que llevan hoy:</div>
       <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:16px;">
-        <div><div style="font-size:20px; font-weight:800; font-family:'Manrope',sans-serif;">📱 ${postpagoTotal}</div><div style="font-size:10px; color:var(--hero-text-faint);">líneas</div></div>
-        <div><div style="font-size:20px; font-weight:800; font-family:'Manrope',sans-serif;">♻️ ${totals.renov||0}</div><div style="font-size:10px; color:var(--hero-text-faint);">renovaciones</div></div>
-        <div><div style="font-size:20px; font-weight:800; font-family:'Manrope',sans-serif;">🎧 ${totals.acc||0}</div><div style="font-size:10px; color:var(--hero-text-faint);">accesorios</div></div>
-        <div><div style="font-size:20px; font-weight:800; font-family:'Manrope',sans-serif;">🛡️ ${totals.seguros||0}</div><div style="font-size:10px; color:var(--hero-text-faint);">seguros</div></div>
-        <div><div style="font-size:20px; font-weight:800; font-family:'Manrope',sans-serif;">💳 ${totals.prepago||0}</div><div style="font-size:10px; color:var(--hero-text-faint);">prepagos</div></div>
+        <div><div style="font-size:20px; font-weight:800; font-family:'Manrope',sans-serif;">📱 ${postpagoTotal}</div><div style="font-size:10px; opacity:.8;">líneas</div></div>
+        <div><div style="font-size:20px; font-weight:800; font-family:'Manrope',sans-serif;">♻️ ${totals.renov||0}</div><div style="font-size:10px; opacity:.8;">renovaciones</div></div>
+        <div><div style="font-size:20px; font-weight:800; font-family:'Manrope',sans-serif;">🎧 ${totals.acc||0}</div><div style="font-size:10px; opacity:.8;">accesorios</div></div>
+        <div><div style="font-size:20px; font-weight:800; font-family:'Manrope',sans-serif;">🛡️ ${totals.seguros||0}</div><div style="font-size:10px; opacity:.8;">seguros</div></div>
+        <div><div style="font-size:20px; font-weight:800; font-family:'Manrope',sans-serif;">💳 ${totals.prepago||0}</div><div style="font-size:10px; opacity:.8;">prepagos</div></div>
       </div>
-      <div style="padding-top:14px; border-top:1px solid var(--hero-line);">
+      <div style="padding-top:14px; border-top:1px solid rgba(255,255,255,.25);">
         <div style="display:flex; align-items:flex-end; justify-content:space-between;">
           <div>
             <div style="font-size:28px; font-weight:800; font-family:'Manrope',sans-serif; line-height:1;">${pct}%</div>
-            <div style="font-size:10.5px; color:var(--hero-text-faint); margin-top:2px;">de cumplimiento</div>
+            <div style="font-size:10.5px; opacity:.8; margin-top:2px;">de cumplimiento</div>
           </div>
-          ${leader && leader.total>0 ? `<div style="text-align:right;"><div style="font-size:10.5px; color:var(--hero-text-faint);">🔥 Líder</div><div style="font-size:14px; font-weight:800;">${leader.ex.name.split(' ')[0]}</div></div>` : ''}
+          ${leader && leader.total>0 ? `<div style="text-align:right;"><div style="font-size:10.5px; opacity:.8;">🔥 Líder</div><div style="font-size:14px; font-weight:800;">${leader.ex.name.split(' ')[0]}</div></div>` : ''}
         </div>
-        <div style="height:8px; border-radius:5px; background:var(--hero-progress-track); margin-top:10px; overflow:hidden;">
-          <div style="height:100%; width:${Math.min(100,pct)}%; background:var(--hero-progress-fill); border-radius:5px;"></div>
+        <div style="height:8px; border-radius:5px; background:rgba(255,255,255,.25); margin-top:10px; overflow:hidden;">
+          <div style="height:100%; width:${Math.min(100,pct)}%; background:#fff; border-radius:5px;"></div>
         </div>
       </div>
       ${faltantes.length ? `
-        <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--hero-line);">
-          <div style="font-size:10.5px; color:var(--hero-text-faint); margin-bottom:5px;">Meta restante de hoy</div>
+        <div style="margin-top:14px; padding-top:14px; border-top:1px solid rgba(255,255,255,.25);">
+          <div style="font-size:10.5px; opacity:.8; margin-bottom:5px;">Meta restante de hoy</div>
           <div style="font-size:13px; font-weight:700;">${faltantes.join(' · ')}</div>
         </div>
       ` : ''}
       ${inactivity.length ? `
-        <div style="margin-top:14px; padding:10px 12px; background:var(--hero-alert-bg); border-radius:12px; font-size:12.5px; font-weight:600;">
+        <div style="margin-top:14px; padding:10px 12px; background:rgba(0,0,0,.18); border-radius:12px; font-size:12.5px; font-weight:600;">
           ${inactivity.map(a=> `⚠️ ${a.ex.name.split(' ')[0]} lleva ${a.hours}${a.hours===1?' hora':' horas'} sin registrar actividad`).join('<br>')}
         </div>
       ` : ''}
@@ -3443,200 +3697,6 @@ function masivoRenderDashboard(){
   }).join('');
 }
 
-// ==================== COMPARATIVAS ====================
-// Four fixed comparisons Carlos asked for: hoy vs ayer, semana actual vs
-// semana pasada (mismos días transcurridos, para que sea justo), hoy vs
-// mismo día del año pasado, y mes actual vs el promedio histórico diario
-// (prorrateado a los días que van del mes). Cuando no hay suficiente
-// historial para una comparación (tienda muy nueva), se dice honestamente
-// en vez de inventar un número.
-
-// Every date that has ever had a cp_day_ entry saved, from either the live
-// cloud cache or this device's local mirror — used to know what history
-// actually exists before trying to compute an average or a year-ago lookup.
-function getAllCapturedDates(){
-  const keys = new Set();
-  Object.keys(firestoreCache).forEach(k=>{
-    if(k.startsWith('cp_day_')) keys.add(k.slice('cp_day_'.length));
-  });
-  try{
-    for(let i=0;i<localStorage.length;i++){
-      const k = localStorage.key(i);
-      if(k && k.startsWith('cp_day_')) keys.add(k.slice('cp_day_'.length));
-    }
-  }catch(e){}
-  return Array.from(keys).sort();
-}
-
-// {byCat:{postpago:..,...}, total} for the whole team on one date.
-function dayTotals(dateStr){
-  const dv = loadDay(dateStr);
-  const byCat = {}; CATS.forEach(c=> byCat[c.id]=0);
-  EXECS.forEach(ex=> CATS.forEach(c=> byCat[c.id] += (dv[ex.id]||{})[c.id]||0));
-  return {byCat, total: sumVals(byCat)};
-}
-
-// Sums dayTotals() across an inclusive date range.
-function rangeTotals(startDate, endDate){
-  const byCat = {}; CATS.forEach(c=> byCat[c.id]=0);
-  const d = new Date(startDate);
-  while(d<=endDate){
-    const dt = dayTotals(fmtDate(d));
-    CATS.forEach(c=> byCat[c.id]+=dt.byCat[c.id]);
-    d.setDate(d.getDate()+1);
-  }
-  return {byCat, total: sumVals(byCat)};
-}
-
-function cmpHoyVsAyer(){
-  const today = new Date(currentDate);
-  const yesterday = new Date(today); yesterday.setDate(today.getDate()-1);
-  const cur = dayTotals(fmtDate(today));
-  const cmp = dayTotals(fmtDate(yesterday));
-  return {
-    title:'Hoy vs. ayer', icon:'📆',
-    curLabel:'Hoy', cmpLabel:'Ayer',
-    cur, cmp, empty:false
-  };
-}
-
-function cmpSemanaVsSemanaPasada(){
-  const today = new Date(currentDate);
-  const monday = getMonday(today);
-  const diasTranscurridos = Math.floor((today-monday)/86400000)+1; // 1..7
-  const finThis = new Date(today);
-  const cur = rangeTotals(monday, finThis);
-  const lastMonday = new Date(monday); lastMonday.setDate(monday.getDate()-7);
-  const lastEquivalent = new Date(lastMonday); lastEquivalent.setDate(lastMonday.getDate()+diasTranscurridos-1);
-  const cmp = rangeTotals(lastMonday, lastEquivalent);
-  return {
-    title:'Semana actual vs. pasada', icon:'📅',
-    curLabel:`Esta semana (${diasTranscurridos} ${diasTranscurridos===1?'día':'días'})`,
-    cmpLabel:`Semana pasada (mismos ${diasTranscurridos} días)`,
-    cur, cmp, empty:false
-  };
-}
-
-function cmpMismoDiaAnioPasado(){
-  const today = new Date(currentDate);
-  const yearAgo = new Date(today.getFullYear()-1, today.getMonth(), today.getDate());
-  const yearAgoStr = fmtDate(yearAgo);
-  const captured = getAllCapturedDates();
-  if(!captured.includes(yearAgoStr)){
-    return {
-      title:'Hoy vs. mismo día — año pasado', icon:'🗓️',
-      empty:true,
-      note:`Todavía no hay datos capturados del ${yearAgo.toLocaleDateString('es-MX',{day:'numeric', month:'long', year:'numeric'})} para comparar. Esta comparación se activará sola en cuanto la tienda lleve un año de historial.`
-    };
-  }
-  const cur = dayTotals(fmtDate(today));
-  const cmp = dayTotals(yearAgoStr);
-  return {
-    title:'Hoy vs. mismo día — año pasado', icon:'🗓️',
-    curLabel:'Hoy',
-    cmpLabel: yearAgo.toLocaleDateString('es-MX',{day:'numeric', month:'short', year:'numeric'}),
-    cur, cmp, empty:false
-  };
-}
-
-function cmpMesVsPromedio(){
-  const today = new Date(currentDate);
-  const monthKey = monthKeyFromDate(today);
-  const diaDelMes = today.getDate(); // días transcurridos incl. hoy
-  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-  const cur = rangeTotals(firstOfMonth, today);
-
-  const captured = getAllCapturedDates().filter(ds=> !ds.startsWith(monthKey));
-  if(captured.length < 7){
-    return {
-      title:'Mes actual vs. promedio histórico', icon:'📊',
-      empty:true,
-      note:'Todavía no hay al menos una semana de historial de meses anteriores para calcular un promedio confiable. En cuanto se acumule más historial, esta comparación aparecerá sola.'
-    };
-  }
-  const byCatSum = {}; CATS.forEach(c=> byCatSum[c.id]=0);
-  captured.forEach(ds=>{ const dt=dayTotals(ds); CATS.forEach(c=> byCatSum[c.id]+=dt.byCat[c.id]); });
-  const avgByCat = {}; CATS.forEach(c=> avgByCat[c.id] = byCatSum[c.id]/captured.length);
-  const cmpByCat = {}; CATS.forEach(c=> cmpByCat[c.id] = Math.round(avgByCat[c.id]*diaDelMes*10)/10);
-  const cmp = {byCat: cmpByCat, total: sumVals(cmpByCat)};
-  return {
-    title:'Mes actual vs. promedio histórico', icon:'📊',
-    curLabel:`Este mes (día ${diaDelMes})`,
-    cmpLabel:'Promedio esperado a estos días',
-    cur, cmp, empty:false
-  };
-}
-
-function pctDiff(cur, cmp){
-  if(cmp<=0) return cur>0 ? 100 : 0;
-  return Math.round(((cur-cmp)/cmp)*100);
-}
-
-function renderCmpCard(data){
-  if(data.empty){
-    return `
-      <div class="cmp-card">
-        <div class="cmp-head"><div class="cmp-title">${data.icon} ${data.title}</div></div>
-        <div class="cmp-empty">ℹ️ ${data.note}</div>
-      </div>`;
-  }
-  const diff = pctDiff(data.cur.total, data.cmp.total);
-  const up = diff>0, flat = diff===0;
-  const pillColor = flat ? 'var(--ink-faint)' : up ? 'var(--renov)' : 'var(--bad)';
-  const pillBg = flat ? 'var(--bg-card)' : up ? '#38c98d22' : '#ef5a6f22';
-  const arrow = flat ? '➖' : up ? '📈' : '📉';
-  const pillText = flat ? 'igual' : `${up?'+':''}${diff}%`;
-
-  const catCells = CATS.map(c=>{
-    const cv = data.cur.byCat[c.id]||0, mv = Math.round((data.cmp.byCat[c.id]||0)*10)/10;
-    const catArrow = cv>mv ? '📈' : cv<mv ? '📉' : '➖';
-    return `<div class="cmp-cat"><div class="cmp-cat-label"><span class="dot ${c.cls}"></span>${c.label}</div><div class="cmp-cat-val">${catArrow} ${cv} <span style="color:var(--ink-faint); font-weight:600;">(${mv})</span></div></div>`;
-  }).join('');
-
-  return `
-    <div class="cmp-card">
-      <div class="cmp-head">
-        <div class="cmp-title">${data.icon} ${data.title}</div>
-        <div class="cmp-pill" style="color:${pillColor}; background:${pillBg};">${arrow} ${pillText}</div>
-      </div>
-      <div class="cmp-totals">
-        <div class="cmp-cur">${data.cur.total}</div>
-        <div class="cmp-vs">${data.curLabel} · vs <b>${data.cmp.total}</b> ${data.cmpLabel}</div>
-      </div>
-      <div class="cmp-cat-grid">${catCells}</div>
-    </div>`;
-}
-
-function renderComparativas(){
-  document.getElementById('cmpDateLabel').textContent =
-    currentDate.toLocaleDateString('es-MX', {weekday:'long', day:'numeric', month:'long'});
-
-  const comparisons = [
-    cmpHoyVsAyer(),
-    cmpSemanaVsSemanaPasada(),
-    cmpMismoDiaAnioPasado(),
-    cmpMesVsPromedio()
-  ];
-
-  document.getElementById('cmpCards').innerHTML = comparisons.map(renderCmpCard).join('');
-
-  // One-line auto insight: call out whichever real (non-empty) comparison
-  // moved the most, so the tab leads with something worth noticing.
-  const real = comparisons.filter(c=>!c.empty).map(c=>({...c, diff: pctDiff(c.cur.total, c.cmp.total)}));
-  const insightEl = document.getElementById('cmpInsight');
-  if(real.length===0){
-    insightEl.innerHTML = '';
-  } else {
-    const most = real.reduce((a,b)=> Math.abs(b.diff)>Math.abs(a.diff) ? b : a);
-    if(most.diff===0){
-      insightEl.textContent = `➖ ${most.title}: exactamente igual.`;
-    } else {
-      const dir = most.diff>0 ? 'arriba' : 'abajo';
-      insightEl.textContent = `${most.diff>0?'📈':'📉'} ${most.title}: ${Math.abs(most.diff)}% ${dir} — el movimiento más grande de las 4 comparativas.`;
-    }
-  }
-}
-
 function renderCierre(){
   const dateStr = fmtDate(currentDate);
   const dayVals = loadDay(dateStr);
@@ -3870,7 +3930,7 @@ function setDate(d){
   if(document.getElementById('view-cierre').classList.contains('active')){ renderCierre(); }
 }
 
-const TAB_LABELS = {hoy:'Hoy', semana:'Semana', mes:'Mes', comparativas:'Comparativas', cierre:'Cierre', ia:'IA', metas:'Metas', inventario:'Inventario', masivo:'Masivo'};
+const TAB_LABELS = {hoy:'Hoy', semana:'Semana', mes:'Mes', cierre:'Cierre', ia:'IA', metas:'Metas', inventario:'Inventario', masivo:'Masivo'};
 function closeDrawer(){
   document.getElementById('drawerNav').classList.remove('open');
   document.getElementById('drawerOverlay').classList.remove('open');
@@ -3895,11 +3955,11 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     if(btn.dataset.view==='hoy'){ renderHoy(); }
     if(btn.dataset.view==='semana'){ currentWeekAnchor = new Date(currentDate); renderSemana(); }
     if(btn.dataset.view==='mes'){ mesViewAnchor = new Date(currentDate); renderMes(); }
-    if(btn.dataset.view==='comparativas'){ renderComparativas(); }
     if(btn.dataset.view==='cierre'){ renderCierre(); }
     if(btn.dataset.view==='inventario'){ renderInventario(); }
     if(btn.dataset.view==='masivo'){ renderMasivo(); }
     if(btn.dataset.view==='ia'){ showIaBriefingIfNeeded(); }
+    if(btn.dataset.view==='metas'){ renderRecords(); renderAdvancedStats(); }
   });
 });
 
@@ -3994,9 +4054,13 @@ const IA_CATEGORIES = [
   ]},
   {name:'📦 Inventario', actions:[
     {emoji:'📦', label:'¿Qué se está agotando?', key:'inventario_bajo'},
+    {emoji:'📱', label:'¿Qué tiene sobreinventario?', key:'sobreinventario'},
   ]},
   {name:'🔄 Comparativas', actions:[
+    {emoji:'📅', label:'¿Hoy vs ayer?', key:'hoy_vs_ayer'},
     {emoji:'🔄', label:'¿Cómo vamos vs semana pasada?', key:'comparativo_semanas'},
+    {emoji:'📆', label:'¿Hoy vs el mismo día del año pasado?', key:'hoy_vs_anio_pasado'},
+    {emoji:'📊', label:'¿Hoy vs el promedio del mes?', key:'hoy_vs_promedio_mes'},
     {emoji:'🏆', label:'¿Quién va mejor?', key:'mejor'},
   ]},
   {name:'🚨 Alertas', actions:[
@@ -4064,6 +4128,20 @@ function iaInventarioBajo(){
   return `📦 <b>Esto se está agotando (3 o menos):</b><br>${lines}${extra}`;
 }
 
+// Flags phones sitting well above the typical stock level — the kind of
+// thing worth pushing before it turns into dead inventory.
+function iaSobreinventario(){
+  const phones = loadInventory().filter(p=> p.category==='telefono');
+  if(phones.length===0) return '📦 Aún no has importado tu inventario de teléfonos.';
+  const stocks = [...phones.map(p=>p.stock)].sort((a,b)=>a-b);
+  const median = stocks[Math.floor(stocks.length/2)] || 0;
+  const threshold = Math.max(median*2, 6);
+  const over = phones.filter(p=> p.stock>=threshold).sort((a,b)=> b.stock-a.stock);
+  if(over.length===0) return '✅ No detecto sobreinventario evidente en teléfonos por ahora — los niveles de stock están parejos.';
+  const lines = over.slice(0,6).map(p=> `• ${p.modelo || p.name} — <b>${p.stock}</b> unidades`).join('<br>');
+  return `📦 <b>Esto tiene sobreinventario, considera promoverlo hoy:</b><br>${lines}`;
+}
+
 function iaComparativoSemanas(){
   const today = new Date();
   const monday = getMonday(today);
@@ -4092,6 +4170,58 @@ function iaComparativoSemanas(){
     return `${arrow} ${c.label}: ${cur} (antes: ${prev})`;
   }).join('<br>');
   return `🔄 <b>Esta semana: ${thisTotal}</b> vs <b>semana pasada: ${lastTotal}</b> — ${trend}.<br><br>${catLines}`;
+}
+
+// Shared helper: total sales (all execs, all categories) for one specific date.
+function totalForDate(dateStr){
+  const dv = loadDay(dateStr);
+  let total = 0;
+  EXECS.forEach(ex=> CATS.forEach(c=> total += (dv[ex.id]||{})[c.id]||0));
+  return total;
+}
+function trendPhrase(diff, suffix){
+  if(diff>0) return `📈 van <b>${diff}% arriba</b>${suffix?' '+suffix:''}`;
+  if(diff<0) return `📉 van <b>${Math.abs(diff)}% abajo</b>${suffix?' '+suffix:''}`;
+  return `van exactamente igual${suffix?' '+suffix:''}`;
+}
+
+function iaHoyVsAyer(){
+  const today = new Date();
+  const yest = new Date(today); yest.setDate(today.getDate()-1);
+  const todayTotal = totalForDate(fmtDate(today));
+  const yTotal = totalForDate(fmtDate(yest));
+  if(todayTotal===0 && yTotal===0) return '📅 Todavía no hay ventas registradas hoy ni ayer para comparar.';
+  const diff = yTotal>0 ? Math.round(((todayTotal-yTotal)/yTotal)*100) : (todayTotal>0?100:0);
+  return `📅 <b>Hoy: ${todayTotal}</b> vs <b>ayer: ${yTotal}</b> — ${trendPhrase(diff,'de ayer')}.`;
+}
+
+function iaHoyVsAñoPasado(){
+  const today = new Date();
+  const lastYear = new Date(today); lastYear.setFullYear(today.getFullYear()-1);
+  const todayTotal = totalForDate(fmtDate(today));
+  const lastYearTotal = totalForDate(fmtDate(lastYear));
+  if(lastYearTotal===0){
+    const label = lastYear.toLocaleDateString('es-MX', {day:'numeric', month:'long', year:'numeric'});
+    return `📆 No tengo datos guardados del ${label} (mismo día del año pasado) para comparar — seguramente la app aún no se usaba entonces.`;
+  }
+  const diff = Math.round(((todayTotal-lastYearTotal)/lastYearTotal)*100);
+  return `📆 <b>Hoy: ${todayTotal}</b> vs <b>mismo día del año pasado: ${lastYearTotal}</b> — ${trendPhrase(diff,'que hace un año')}.`;
+}
+
+function iaHoyVsPromedioMensual(){
+  const today = new Date();
+  const todayStr = fmtDate(today);
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  let sum = 0, days = 0;
+  for(let d=new Date(monthStart); fmtDate(d)!==todayStr && days<31; d.setDate(d.getDate()+1)){
+    sum += totalForDate(fmtDate(d));
+    days++;
+  }
+  if(days===0) return '📊 Hoy es el primer día del mes con datos — todavía no hay promedio con el cual comparar.';
+  const avg = sum/days;
+  const todayTotal = totalForDate(todayStr);
+  const diff = avg>0 ? Math.round(((todayTotal-avg)/avg)*100) : (todayTotal>0?100:0);
+  return `📊 <b>Hoy: ${todayTotal}</b> vs <b>promedio diario del mes: ${avg.toFixed(1)}</b> — ${trendPhrase(diff,'del promedio')}.`;
 }
 
 // Instead of waiting to be asked, IA opens by scanning today's real data and
@@ -4763,7 +4893,11 @@ function runIaAction(key, labelText){
       case 'seguimiento': response = iaSeguimientoPendiente(); break;
       case 'meta80': response = iaQueFaltaPara80(); break;
       case 'inventario_bajo': response = iaInventarioBajo(); break;
+      case 'sobreinventario': response = iaSobreinventario(); break;
       case 'comparativo_semanas': response = iaComparativoSemanas(); break;
+      case 'hoy_vs_ayer': response = iaHoyVsAyer(); break;
+      case 'hoy_vs_anio_pasado': response = iaHoyVsAñoPasado(); break;
+      case 'hoy_vs_promedio_mes': response = iaHoyVsPromedioMensual(); break;
       case 'mejor': response = iaQuienVaMejor(); break;
       case 'cerrar_mes': response = iaComoCerrarMes(); break;
       case 'whatsapp': response = iaGenerarMensajeWhatsApp(); break;
