@@ -913,7 +913,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 72;
+const APP_VERSION = 73;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -1896,8 +1896,7 @@ function renderHoy(){
   const dateStr = fmtDate(currentDate);
   dayData = loadDay(dateStr);
   currentDayCommit = loadDayCommit(dateStr);
-  renderGreetingHero();
-  renderStoreAlerts();
+  renderGreetingHero(); // now includes Centro de Decisiones — folds in what storeAlerts used to show separately
   renderDashboardSummary();
   renderCommitForm();
   renderKPIs();
@@ -2060,13 +2059,12 @@ function buildDecisionInsights(){
   const totalSold = sumVals(totals);
   const totalCommit = sumVals(commit);
 
-  // Ritmo general de la tienda
-  if(storeOpenNow && totalCommit>0 && elapsed>0.03){
-    const expected = totalCommit*elapsed;
-    const pctRitmo = expected>0 ? Math.round((totalSold/expected)*100) : 0;
-    const level = pctRitmo>=100 ? 'good' : pctRitmo>=80 ? 'warn' : 'bad';
-    const icon = level==='good' ? '🟢' : level==='warn' ? '🟡' : '🔴';
-    insights.push({level, text:`${icon} La tienda va al <b>${pctRitmo}%</b> del ritmo esperado para esta hora.`});
+  // Ritmo general de la tienda — reutiliza el mismo cálculo que ya usaba el
+  // Índice de Piso (getDashboardAlert), en vez de tener dos versiones del
+  // mismo número compitiendo entre sí.
+  if(storeOpenNow){
+    const alert = getDashboardAlert(totals, commit);
+    if(alert) insights.push({level: alert.level==='bad' ? 'bad' : 'good', text: alert.text});
   }
 
   // Categoría más floja del día (solo entre las que tienen meta puesta)
@@ -2088,6 +2086,16 @@ function buildDecisionInsights(){
   getInactivityAlerts().forEach(a=>{
     insights.push({level:'bad', text:`🔴 <b>${a.ex.name.split(' ')[0]}</b> lleva ${a.hours} ${a.hours===1?'hora':'horas'} sin registrar actividad.`});
   });
+
+  // Ayer no se alcanzó la meta (esto vivía antes en getStoreAlerts, ahora aquí)
+  const yesterday = new Date(now); yesterday.setDate(now.getDate()-1);
+  const yStr = fmtDate(yesterday);
+  const yGoal = sumVals(loadDayCommit(yStr));
+  if(yGoal>0){
+    const yDv = loadDay(yStr);
+    let ySold = 0; EXECS.forEach(ex=> ySold += totalFor(yDv[ex.id]||{}));
+    if(ySold < yGoal) insights.push({level:'info', text:`🔵 Ayer no se alcanzó la meta del día (${ySold} de ${yGoal}).`});
+  }
 
   // Posible récord del día
   const recordText = checkPossibleRecordToday(dv);
@@ -2324,11 +2332,6 @@ function renderDashboardSummary(){
     riesgoHtml = `<div style="margin-top:8px; font-size:13px; color:var(--ink-faint);">😴 Nadie está marcado en piso hoy.</div>`;
   }
 
-  const alert = getDashboardAlert(totals, commit);
-  const alertHtml = alert
-    ? `<div style="margin-top:10px; padding:9px 12px; border-radius:9px; background:${alert.level==='bad'?'#ef5a6f22':'#38c98d22'}; border-left:3px solid ${alert.level==='bad'?'var(--bad)':'var(--renov)'}; font-size:12.5px; line-height:1.5;">${alert.text}</div>`
-    : '';
-
   // ---- ÍNDICE DE PISO: an at-a-glance store health readout ----
   const dayStatusNow = loadDayStatus(fmtDate(currentDate));
   const activeCount = EXECS.filter(ex => (dayStatusNow[ex.id]||'piso') === 'piso').length;
@@ -2339,16 +2342,6 @@ function renderDashboardSummary(){
   else if(pct>=35){ floorLevel='Riesgo'; floorEmoji='🟠'; riskLabel='Medio'; }
   else { floorLevel='Crítico'; floorEmoji='🔴'; riskLabel='Alto'; }
 
-  const faltantes = CATS.map(c=>{
-    const need = (commit[c.id]||0) - (totals[c.id]||0);
-    return need>0 ? `${c.label} <b>${need}</b>` : null;
-  }).filter(Boolean);
-  const faltaHtml = totalCommit<=0
-    ? `<div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--line); font-size:12px; color:var(--ink-faint);">⚪ Aún no se ha definido el compromiso de hoy.</div>`
-    : faltantes.length
-      ? `<div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--line); font-size:12px; color:var(--ink-dim);">Falta para la cuota de hoy: ${faltantes.join(', ')}</div>`
-      : `<div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--line); font-size:12px; color:var(--renov); font-weight:700;">✅ Cuota del día completa</div>`;
-
   const floorIndexHtml = `
     <div style="background:var(--bg-panel); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:14px; box-shadow:var(--shadow);">
       <div style="font-weight:800; font-size:13px; margin-bottom:10px;">${floorEmoji} Operación: ${floorLevel}</div>
@@ -2358,7 +2351,6 @@ function renderDashboardSummary(){
         <div style="flex:1;"><div style="font-size:18px; font-weight:800;">${totalSold}</div><div style="font-size:10px; color:var(--ink-faint);">Ventas hoy</div></div>
         <div style="flex:1;"><div style="font-size:18px; font-weight:800;">${riskLabel}</div><div style="font-size:10px; color:var(--ink-faint);">Riesgo</div></div>
       </div>
-      ${faltaHtml}
     </div>
   `;
 
@@ -2372,7 +2364,6 @@ function renderDashboardSummary(){
       </div>
       ${mvpHtml}
       ${riesgoHtml}
-      ${alertHtml}
     </div>
   `;
 }
