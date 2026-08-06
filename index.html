@@ -714,6 +714,7 @@
   <!-- INVENTARIO -->
   <section class="view" id="view-inventario">
     <div class="section-title" style="margin-top:0;">📦 Inventario — PORTAL LAGOS DE MORENO</div>
+    <div class="insight-bar" id="invInsight" style="margin-bottom:14px;"></div>
 
     <div class="goals-form" id="invImportForm" style="margin-bottom:14px;">
       <div class="row" style="border-bottom:none; padding-bottom:6px;">
@@ -894,7 +895,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 70;
+const APP_VERSION = 71;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -1986,6 +1987,124 @@ function getInactivityAlerts(){
   return alerts;
 }
 
+// ==================== CENTRO DE DECISIONES ====================
+// Reads across store pace, categories, inactivity, records, inventory and
+// the month projection to surface only what's actually worth Carlos's
+// attention right now — instead of him having to visit five tabs to piece
+// it together himself. Honest by default: any signal without real data
+// behind it (no goal set, no inventory imported, store closed) is skipped
+// rather than faked. Reuses the same functions the IA tab already relies
+// on (getInactivityAlerts, loadInventory, iaMonthTotalsUpTo) so there's
+// only one source of truth per calculation.
+function checkPossibleRecordToday(todayData){
+  const dates = getAllCapturedDates().filter(d=> d !== fmtDate(new Date()));
+  if(dates.length < 5) return null; // not enough history for "récord" to mean anything yet
+  let best = null;
+  EXECS.forEach(ex=>{
+    const todayTotal = totalFor(todayData[ex.id]||{});
+    if(todayTotal<=0) return;
+    let historicalBest = 0;
+    dates.forEach(d=>{
+      const t = totalFor((loadDay(d)[ex.id])||{});
+      if(t>historicalBest) historicalBest = t;
+    });
+    if(historicalBest<=0) return;
+    if(todayTotal>=historicalBest){
+      const margin = todayTotal - historicalBest;
+      if(!best || (!best.broken) || margin>best.margin) best = {name: ex.name.split(' ')[0], today: todayTotal, best: historicalBest, margin, broken:true};
+    } else if(!best?.broken && todayTotal >= historicalBest*0.8){
+      const gapNeeded = historicalBest - todayTotal;
+      if(!best || (best.gapNeeded===undefined) || gapNeeded<best.gapNeeded) best = {name: ex.name.split(' ')[0], today: todayTotal, best: historicalBest, gapNeeded, broken:false};
+    }
+  });
+  if(!best) return null;
+  return best.broken
+    ? `<b>${best.name}</b> rompió su récord de ${best.best} — lleva ${best.today} hoy 🎉`
+    : `<b>${best.name}</b> está a ${best.gapNeeded} de romper su récord (${best.best})`;
+}
+
+function buildDecisionInsights(){
+  const insights = [];
+  const now = new Date();
+  if(fmtDate(currentDate) !== fmtDate(now)) return insights; // only meaningful for "right now"
+
+  const STORE_OPEN = 11, STORE_CLOSE = 20;
+  const hourFrac = now.getHours() + now.getMinutes()/60;
+  const storeOpenNow = hourFrac > STORE_OPEN && hourFrac < STORE_CLOSE;
+  const elapsed = Math.min(1, Math.max(0, (hourFrac-STORE_OPEN)/(STORE_CLOSE-STORE_OPEN)));
+
+  const dateStr = fmtDate(now);
+  const dv = loadDay(dateStr);
+  const commit = loadDayCommit(dateStr);
+  const totals = {}; CATS.forEach(c=> totals[c.id]=0);
+  EXECS.forEach(ex=> CATS.forEach(c=> totals[c.id] += (dv[ex.id]||{})[c.id]||0));
+  const totalSold = sumVals(totals);
+  const totalCommit = sumVals(commit);
+
+  // Ritmo general de la tienda
+  if(storeOpenNow && totalCommit>0 && elapsed>0.03){
+    const expected = totalCommit*elapsed;
+    const pctRitmo = expected>0 ? Math.round((totalSold/expected)*100) : 0;
+    const level = pctRitmo>=100 ? 'good' : pctRitmo>=80 ? 'warn' : 'bad';
+    const icon = level==='good' ? '🟢' : level==='warn' ? '🟡' : '🔴';
+    insights.push({level, text:`${icon} La tienda va al <b>${pctRitmo}%</b> del ritmo esperado para esta hora.`});
+  }
+
+  // Categoría más floja del día (solo entre las que tienen meta puesta)
+  if(storeOpenNow && elapsed>0.03){
+    let worstCat = null;
+    CATS.forEach(c=>{
+      const goal = commit[c.id]||0;
+      if(goal<=0) return;
+      const pct = Math.round(((totals[c.id]||0)/(goal*elapsed))*100);
+      if(!worstCat || pct<worstCat.pct) worstCat = {cat:c, pct};
+    });
+    if(worstCat && worstCat.pct<80){
+      const icon = worstCat.pct<50 ? '🔴' : '🟡';
+      insights.push({level: worstCat.pct<50?'bad':'warn', text:`${icon} <b>${worstCat.cat.label}</b> es la categoría más baja del día (${worstCat.pct}%).`});
+    }
+  }
+
+  // Inactividad (mismo criterio que ya usa el resto de la app)
+  getInactivityAlerts().forEach(a=>{
+    insights.push({level:'bad', text:`🔴 <b>${a.ex.name.split(' ')[0]}</b> lleva ${a.hours} ${a.hours===1?'hora':'horas'} sin registrar actividad.`});
+  });
+
+  // Posible récord del día
+  const recordText = checkPossibleRecordToday(dv);
+  if(recordText) insights.push({level:'good', text:`🏆 ${recordText}.`});
+
+  // Inventario crítico — solo lo más urgente, el resto vive en Inventario
+  const inv = loadInventory();
+  const low = inv.filter(p=> p.stock<=2).sort((a,b)=> a.stock-b.stock);
+  if(low.length>0){
+    const worst = low[0];
+    insights.push({level:'warn', text:`📦 <b>${worst.name}</b> se está agotando (${worst.stock} en stock)${low.length>1?` — y ${low.length-1} más.`:'.'}`});
+  }
+  const overstock = inv.filter(p=> p.stock>=15).sort((a,b)=> b.stock-a.stock)[0];
+  if(overstock) insights.push({level:'info', text:`📦 Hay <b>${overstock.stock} ${overstock.name}</b> disponibles — buen momento para impulsarlo.`});
+
+  // Pronóstico de cierre de mes (total de tienda, el detalle por categoría vive en Mes)
+  const cuota = loadCuota(monthKeyFromDate(now));
+  const totalCuotaMes = sumVals(cuota);
+  if(totalCuotaMes>0){
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+    const daysElapsed = now.getDate();
+    const monthTotals = iaMonthTotalsUpTo(now.getFullYear(), now.getMonth(), daysElapsed);
+    const monthSold = sumVals(monthTotals);
+    const projected = daysElapsed>0 ? Math.round((monthSold/daysElapsed)*daysInMonth) : 0;
+    const pctProj = Math.round((projected/totalCuotaMes)*100);
+    const level = pctProj>=100 ? 'good' : pctProj>=90 ? 'warn' : 'bad';
+    insights.push({level, text:`📈 Si mantienen este ritmo, cierran el mes al <b>${pctProj}%</b> de la meta.`});
+  }
+
+  // Peor primero: lo urgente arriba, lo bueno abajo. Máximo 6 líneas para que
+  // la tarjeta siga siendo algo que se lee en 5 segundos, no un reporte.
+  const order = {bad:0, warn:1, good:2, info:3};
+  insights.sort((a,b)=> order[a.level]-order[b.level]);
+  return insights.slice(0,6);
+}
+
 function renderGreetingHero(){
   const el = document.getElementById('greetingHero');
   if(!el) return;
@@ -2017,7 +2136,7 @@ function renderGreetingHero(){
     return need>0 ? `${need} ${c.label}` : null;
   }).filter(Boolean) : [];
 
-  const inactivity = role==='gerente' ? getInactivityAlerts() : [];
+  const decisionInsights = role==='gerente' ? buildDecisionInsights() : [];
 
   el.innerHTML = `
     <div style="background:var(--hero-bg); border:var(--hero-border); box-shadow:var(--hero-shadow); border-radius:20px; padding:22px 20px; margin-bottom:16px; color:var(--hero-text);">
@@ -2048,9 +2167,13 @@ function renderGreetingHero(){
           <div style="font-size:13px; font-weight:700;">${faltantes.join(' · ')}</div>
         </div>
       ` : ''}
-      ${inactivity.length ? `
-        <div style="margin-top:14px; padding:10px 12px; background:var(--hero-alert-bg); border-radius:12px; font-size:12.5px; font-weight:600;">
-          ${inactivity.map(a=> `⚠️ ${a.ex.name.split(' ')[0]} lleva ${a.hours}${a.hours===1?' hora':' horas'} sin registrar actividad`).join('<br>')}
+      ${decisionInsights.length ? `
+        <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--hero-line);">
+          <div style="font-size:10.5px; color:var(--hero-text-faint); margin-bottom:7px; text-transform:uppercase; letter-spacing:.4px; font-weight:800;">🎯 Centro de decisiones</div>
+          ${decisionInsights.map(i=>{
+            const borderColor = i.level==='bad' ? 'var(--bad)' : i.level==='warn' ? 'var(--acc)' : i.level==='good' ? 'var(--renov)' : 'var(--postpago2)';
+            return `<div style="padding:8px 10px; border-radius:10px; background:var(--hero-alert-bg); margin-bottom:6px; font-size:12.5px; font-weight:600; border-left:3px solid ${borderColor};">${i.text}</div>`;
+          }).join('')}
         </div>
       ` : ''}
     </div>
@@ -2355,10 +2478,19 @@ function renderSemana(){
   const cuotaTotalSum = Object.values(weekCuota).reduce((a,b)=>a+b,0);
   const pctTeam = cuotaTotalSum>0 ? Math.round((grandStoreTotal/cuotaTotalSum)*100) : 0;
   const insight = document.getElementById('weekInsight');
+  const isCurrentWeek = weekKey === getISOWeekString(new Date());
   if(cuotaTotalSum===0){
     insight.innerHTML = `💡 Aún no defines la cuota de la <b>semana ${weekNum}</b>. Ve a la pestaña Metas para capturarla.`;
   } else {
-    insight.innerHTML = `💡 La tienda lleva <b>${grandStoreTotal}</b> de <b>${cuotaTotalSum}</b> (${pctTeam}%) en la semana ${weekNum}.`;
+    let cmpText = '';
+    if(isCurrentWeek){
+      const cmp = cmpSemanaVsSemanaPasada();
+      if(cmp.cmp.total>0){
+        const diff = pctDiff(cmp.cur.total, cmp.cmp.total);
+        cmpText = ` 🤖 Van <b>${diff>0?'+':''}${diff}%</b> ${diff>=0?'arriba':'abajo'} de la semana pasada (mismos días).`;
+      }
+    }
+    insight.innerHTML = `💡 La tienda lleva <b>${grandStoreTotal}</b> de <b>${cuotaTotalSum}</b> (${pctTeam}%) en la semana ${weekNum}.${cmpText}`;
   }
 }
 
@@ -2547,7 +2679,10 @@ function renderMes(){
   if(cuotaTotalSum===0){
     insight.innerHTML = `💡 Aún no defines la cuota de <b>${monthKey}</b>. Ve a la pestaña Metas para capturarla.`;
   } else if(isCurrentMonth){
-    insight.innerHTML = `💡 La tienda lleva <b>${grandTotalStore}</b> de <b>${cuotaTotalSum}</b> (${pctTeam}%) este mes. ${daysLeftMonth>0 ? `Quedan <b>${daysLeftMonth}</b> días para cerrar.` : 'Hoy cierra el mes.'}`;
+    const projected = lastDayToCount>0 ? Math.round((grandTotalStore/lastDayToCount)*daysInMonth) : 0;
+    const pctProj = Math.round((projected/cuotaTotalSum)*100);
+    const projText = ` 🤖 Al ritmo actual, cerrarían el mes al <b>${pctProj}%</b> de la meta.`;
+    insight.innerHTML = `💡 La tienda lleva <b>${grandTotalStore}</b> de <b>${cuotaTotalSum}</b> (${pctTeam}%) este mes. ${daysLeftMonth>0 ? `Quedan <b>${daysLeftMonth}</b> días para cerrar.` : 'Hoy cierra el mes.'}${projText}`;
   } else {
     insight.innerHTML = `💡 Ese mes cerró con <b>${grandTotalStore}</b> de <b>${cuotaTotalSum}</b> (${pctTeam}%).`;
   }
@@ -2957,6 +3092,9 @@ function renderInventario(){
   const session = getSession();
   const searchEl = document.getElementById('inv-search');
   const searchTerm = (searchEl ? searchEl.value : '').toLowerCase();
+
+  const invInsightEl = document.getElementById('invInsight');
+  if(invInsightEl) invInsightEl.innerHTML = `🤖 ${iaInventarioBajo()}`;
 
   const importForm = document.getElementById('invImportForm');
   if(importForm) importForm.style.display = role==='gerente' ? '' : 'none';
