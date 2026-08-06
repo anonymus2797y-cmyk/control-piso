@@ -521,6 +521,7 @@
   <button class="tab-btn drawer-item" data-view="cierre">🔒 Cierre</button>
   <div class="drawer-eyebrow">Herramientas</div>
   <button class="tab-btn drawer-item" data-view="ia">🤖 IA</button>
+  <button class="tab-btn drawer-item" data-view="gamificacion">🏆 Gamificación</button>
   <button class="tab-btn drawer-item" data-view="metas">🎯 Metas</button>
   <button class="tab-btn drawer-item" data-view="inventario">📦 Inventario</button>
   <button class="tab-btn drawer-item" data-view="masivo">📲 Masivo</button>
@@ -649,6 +650,23 @@
       <input type="text" id="iaInput" placeholder="Escribe una pregunta..." style="flex:1; background:var(--bg-card); border:1px solid var(--line); color:var(--ink); border-radius:9px; padding:9px 12px; font-size:13px;">
       <button class="save-btn" id="iaSendBtn" style="width:auto; margin-top:0; padding:9px 16px; white-space:nowrap;">Enviar</button>
     </div>
+  </section>
+
+  <!-- GAMIFICACIÓN -->
+  <section class="view" id="view-gamificacion">
+    <div class="section-title" style="margin-top:0;">🏆 Ranking del mes</div>
+    <div class="cmp-card" style="margin-bottom:16px;">
+      <div id="gamiPodium"></div>
+    </div>
+
+    <div class="section-title">🥇 Nivel y racha</div>
+    <div id="gamiLevels" style="margin-bottom:16px;"></div>
+
+    <div class="section-title">📌 Récords históricos</div>
+    <div id="gamiRecords" style="margin-bottom:16px;"></div>
+
+    <div class="section-title">🎖️ Insignias del mes</div>
+    <div id="gamiBadges"></div>
   </section>
 
   <!-- METAS -->
@@ -895,7 +913,7 @@
 <script>
 // Bump this by 1 every time a new version is shipped — that's the ONLY place
 // that needs to change. The header badge and the update-checker both read it.
-const APP_VERSION = 71;
+const APP_VERSION = 72;
 
 const EXECS = [
   {id:'alma', name:'Alma Aceves'},
@@ -1079,6 +1097,7 @@ function rerenderActiveView(){
   else if(view==='semana') renderSemana();
   else if(view==='mes') renderMes();
   else if(view==='comparativas') renderComparativas();
+  else if(view==='gamificacion') renderGamificacion();
   else if(view==='cierre') renderCierre();
   else if(view==='inventario') renderInventario();
   else if(view==='masivo') renderMasivo();
@@ -2523,6 +2542,112 @@ function computeMonthlyBadges(execTotals){
   if(mvp) badges[mvp.ex.id].push('👑 MVP del Mes');
 
   return badges;
+}
+
+// ==================== GAMIFICACIÓN ====================
+// Reuses computeNivel/computeStreak (already powering the exec cards in Hoy)
+// and the existing podium component — so "Top 10" becomes an honest ranking
+// of the 3 execs the store actually has, not a padded list pretending to be
+// bigger than the team.
+function computeExecMonthTotals(year, monthIdx, uptoDay){
+  const execTotals = {};
+  EXECS.forEach(ex=> execTotals[ex.id] = {postpago:0, postpago_servicio:0, renov:0, prepago:0, seguros:0, acc:0});
+  for(let day=1; day<=uptoDay; day++){
+    const dateStr = `${year}-${String(monthIdx+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const dv = loadDay(dateStr);
+    EXECS.forEach(ex=> CATS.forEach(c=> execTotals[ex.id][c.id] += (dv[ex.id]||{})[c.id]||0));
+  }
+  return execTotals;
+}
+
+// Best single day ever, per exec and for the whole store — scans every
+// captured date once. Small enough dataset (a store's worth of days) that
+// this stays instant; revisit only if getAllCapturedDates() ever gets huge.
+function computeHistoricalRecords(){
+  const dates = getAllCapturedDates();
+  const bestByExec = {}; EXECS.forEach(ex=> bestByExec[ex.id] = {total:0, date:null});
+  let bestStore = {total:0, date:null};
+  dates.forEach(d=>{
+    const dv = loadDay(d);
+    let storeTotal = 0;
+    EXECS.forEach(ex=>{
+      const t = totalFor(dv[ex.id]||{});
+      storeTotal += t;
+      if(t>bestByExec[ex.id].total) bestByExec[ex.id] = {total:t, date:d};
+    });
+    if(storeTotal>bestStore.total) bestStore = {total:storeTotal, date:d};
+  });
+  return {bestByExec, bestStore};
+}
+
+function renderGamificacion(){
+  const now = new Date();
+  const daysElapsed = now.getDate();
+  const execTotals = computeExecMonthTotals(now.getFullYear(), now.getMonth(), daysElapsed);
+
+  // Ranking del mes — mismo podio que ya usa el resto de la app.
+  const totalsByExec = {}; EXECS.forEach(ex=> totalsByExec[ex.id] = sumVals(execTotals[ex.id]));
+  renderPostpagoPodium('gamiPodium', totalsByExec, 'ventas este mes');
+
+  // Nivel y racha
+  document.getElementById('gamiLevels').innerHTML = EXECS.map(ex=>{
+    const nivel = computeNivel(ex.id);
+    const streak = computeStreak(ex.id);
+    return `
+      <div class="cmp-card" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+        <div>
+          <div style="font-weight:800; font-size:13px;">${ex.name}</div>
+          <div style="font-size:11.5px; color:var(--ink-faint); margin-top:2px;">${streak>0 ? `🔥 ${streak} día${streak===1?'':'s'} cumpliendo` : 'Sin racha activa'}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:20px;">${nivel.emoji}</div>
+          <div style="font-size:10.5px; font-weight:700; color:var(--ink-dim);">${nivel.label}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Récords históricos
+  const {bestByExec, bestStore} = computeHistoricalRecords();
+  const dateFmt = (d)=> d ? new Date(d+'T00:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'short'}) : '—';
+  let recordsHtml = bestStore.total>0 ? `
+    <div class="cmp-card" style="margin-bottom:8px;">
+      <div style="font-size:11px; color:var(--ink-faint); font-weight:700; text-transform:uppercase; letter-spacing:.3px;">Mejor día de la tienda</div>
+      <div style="font-size:22px; font-weight:800; margin-top:2px;">${bestStore.total} <span style="font-size:12px; font-weight:600; color:var(--ink-faint);">· ${dateFmt(bestStore.date)}</span></div>
+    </div>` : `<div class="insight-bar" style="margin-bottom:8px;">Todavía no hay suficiente historial para marcar récords — se irán llenando solos con los días capturados.</div>`;
+  recordsHtml += EXECS.map(ex=>{
+    const r = bestByExec[ex.id];
+    if(r.total<=0) return '';
+    return `<div class="cmp-card" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+      <div style="font-weight:700; font-size:12.5px;">${ex.name}</div>
+      <div style="text-align:right;"><div style="font-weight:800; font-size:16px;">${r.total}</div><div style="font-size:10px; color:var(--ink-faint);">${dateFmt(r.date)}</div></div>
+    </div>`;
+  }).join('');
+  document.getElementById('gamiRecords').innerHTML = recordsHtml;
+
+  // Insignias del mes — las de siempre (líder por categoría, MVP) más dos
+  // nuevas: racha sostenida y récord personal roto hoy mismo.
+  const badges = computeMonthlyBadges(execTotals);
+  EXECS.forEach(ex=>{
+    const streak = computeStreak(ex.id);
+    if(streak>=5) badges[ex.id].push(`🔥 Racha de ${streak} días`);
+    const r = bestByExec[ex.id];
+    if(r.total>0 && r.date===fmtDate(now)) badges[ex.id].push('🏆 Récord personal hoy');
+  });
+  const badgesEl = document.getElementById('gamiBadges');
+  const anyBadges = EXECS.some(ex=> badges[ex.id].length>0);
+  if(!anyBadges){
+    badgesEl.innerHTML = `<div class="insight-bar">Aún no hay insignias este mes — se van ganando conforme avanzan las ventas.</div>`;
+  } else {
+    badgesEl.innerHTML = EXECS.map(ex=>{
+      if(badges[ex.id].length===0) return '';
+      return `<div class="cmp-card" style="margin-bottom:8px;">
+        <div style="font-weight:800; font-size:12.5px; margin-bottom:6px;">${ex.name}</div>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+          ${badges[ex.id].map(b=> `<span style="font-size:11px; font-weight:700; padding:5px 10px; border-radius:20px; background:var(--bg-card); border:1px solid var(--line);">${b}</span>`).join('')}
+        </div>
+      </div>`;
+    }).join('');
+  }
 }
 
 function renderMes(){
@@ -4019,7 +4144,7 @@ function setDate(d){
   if(document.getElementById('view-cierre').classList.contains('active')){ renderCierre(); }
 }
 
-const TAB_LABELS = {hoy:'Hoy', semana:'Semana', mes:'Mes', comparativas:'Comparativas', cierre:'Cierre', ia:'IA', metas:'Metas', inventario:'Inventario', masivo:'Masivo'};
+const TAB_LABELS = {hoy:'Hoy', semana:'Semana', mes:'Mes', comparativas:'Comparativas', cierre:'Cierre', ia:'IA', gamificacion:'Gamificación', metas:'Metas', inventario:'Inventario', masivo:'Masivo'};
 function closeDrawer(){
   document.getElementById('drawerNav').classList.remove('open');
   document.getElementById('drawerOverlay').classList.remove('open');
@@ -4045,6 +4170,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     if(btn.dataset.view==='semana'){ currentWeekAnchor = new Date(currentDate); renderSemana(); }
     if(btn.dataset.view==='mes'){ mesViewAnchor = new Date(currentDate); renderMes(); }
     if(btn.dataset.view==='comparativas'){ renderComparativas(); }
+    if(btn.dataset.view==='gamificacion'){ renderGamificacion(); }
     if(btn.dataset.view==='cierre'){ renderCierre(); }
     if(btn.dataset.view==='inventario'){ renderInventario(); }
     if(btn.dataset.view==='masivo'){ renderMasivo(); }
